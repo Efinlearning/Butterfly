@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NIFTY Options Exit Tool</title>
+<style>
+:root{
+  --bg:#0b0b0b;--s0:#111;--s1:#181818;--s2:#222;--s3:#2a2a2a;
+  --b:#2c2c2c;--ba:#1e3a8a;--bs:#14532d;--bw:#78350f;--bd:#7f1d1d;
+  --t:#e8e8e8;--t2:#777;--t3:#444;
+  --acc:#3b82f6;--suc:#22c55e;--wrn:#f59e0b;--dng:#ef4444;
+  --bga:rgba(59,130,246,.13);--bgs:rgba(34,197,94,.11);
+  --bgw:rgba(245,158,11,.11);--bgd:rgba(239,68,68,.09);
+  --g1:rgba(59,130,246,.08);   /* 100 gap tint */
+  --g2:rgba(139,92,246,.08);   /* 150 gap tint – purple */
+  --g3:rgba(20,184,166,.08);   /* 200 gap tint – teal */
+  --g1h:rgba(59,130,246,.18);
+  --g2h:rgba(139,92,246,.18);
+  --g3h:rgba(20,184,166,.18);
+  --f:system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--t);font-family:var(--f);font-size:13px;min-height:100vh}
+a{color:var(--acc)}
+code{background:var(--s2);padding:1px 5px;border-radius:3px;font-size:11px;font-family:monospace}
+
+/* ── HEADER ─────────────────────────────────────────────────────── */
+#hbar{
+  display:flex;align-items:center;gap:6px;padding:7px 14px;
+  background:var(--s1);border-bottom:1px solid var(--b);
+  flex-wrap:wrap;position:sticky;top:0;z-index:50
+}
+.hm{display:flex;flex-direction:column;padding:3px 8px;
+  border:1px solid var(--b);border-radius:5px;min-width:70px}
+.hm .hl{font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.05em}
+.hm .hv{font-size:13px;font-weight:500}
+.badge{padding:2px 9px;border-radius:20px;font-size:10px;font-weight:600}
+.live{background:var(--bgs);color:var(--suc);border:1px solid var(--bs)}
+.demo{background:var(--bgw);color:var(--wrn);border:1px solid var(--bw)}
+.err{background:var(--bgd);color:var(--dng);border:1px solid var(--bd)}
+.rb-sw{background:var(--bga);color:var(--acc);border:1px solid var(--ba)}
+.rb-hv{background:var(--bgw);color:var(--wrn);border:1px solid var(--bw)}
+
+/* ── TABS ────────────────────────────────────────────────────────── */
+#tabs{
+  display:flex;background:var(--s1);border-bottom:1px solid var(--b);
+  overflow-x:auto;position:sticky;top:44px;z-index:40
+}
+.tab{
+  padding:9px 14px;font-size:11px;font-weight:500;border:none;background:none;
+  color:var(--t2);cursor:pointer;border-bottom:2px solid transparent;
+  white-space:nowrap;font-family:var(--f);letter-spacing:.01em
+}
+.tab.active{color:var(--acc);border-bottom-color:var(--acc)}
+.tab:hover:not(.active){color:var(--t)}
+
+/* ── PANELS ──────────────────────────────────────────────────────── */
+.pnl{display:none;padding:14px 14px 40px;max-width:1400px;margin:0 auto}
+.pnl.on{display:block}
+
+/* ── SECTION TITLE ───────────────────────────────────────────────── */
+.st{
+  font-size:10px;font-weight:600;color:var(--t2);text-transform:uppercase;
+  letter-spacing:.05em;margin:18px 0 9px;padding-bottom:5px;border-bottom:1px solid var(--b)
+}
+.st:first-child{margin-top:0}
+
+/* ── CARDS ───────────────────────────────────────────────────────── */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:8px}
+.card{background:var(--s1);border:1px solid var(--b);border-radius:8px;padding:10px 12px}
+.cl{font-size:10px;color:var(--t2);margin-bottom:3px}
+.cv{font-size:17px;font-weight:500}
+.cs{font-size:10px;color:var(--t3);margin-top:2px}
+.card.blue{border-color:var(--ba);background:var(--bga)}.card.blue .cv{color:var(--acc)}
+.card.green{border-color:var(--bs);background:var(--bgs)}.card.green .cv{color:var(--suc)}
+.card.amber{border-color:var(--bw);background:var(--bgw)}.card.amber .cv{color:var(--wrn)}
+.card.red{border-color:var(--bd);background:var(--bgd)}.card.red .cv{color:var(--dng)}
+
+/* ── FORMS ───────────────────────────────────────────────────────── */
+.fr{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:10px}
+.fg{display:flex;flex-direction:column;gap:3px}
+.fg label{font-size:10px;color:var(--t2);font-weight:500}
+.fg input,.fg select{
+  background:var(--s2);border:1px solid var(--b);border-radius:5px;
+  padding:6px 8px;font-size:12px;color:var(--t);font-family:var(--f);width:100%
+}
+.fg input:focus,.fg select:focus{outline:none;border-color:var(--acc)}
+
+/* ── BUTTONS ─────────────────────────────────────────────────────── */
+.btn{
+  border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-weight:500;
+  cursor:pointer;font-family:var(--f);transition:opacity .15s
+}
+.btn:hover{opacity:.85}.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-p{background:var(--acc);color:#fff}
+.btn-s{background:var(--s2);color:var(--t);border:1px solid var(--b)}
+.btn-g{background:var(--bgs);color:var(--suc);border:1px solid var(--bs)}
+
+/* ── EXIT TOOL TABLE ─────────────────────────────────────────────── */
+.scrollx{overflow-x:auto}
+.exit-tbl{width:100%;border-collapse:collapse;font-size:12px;min-width:700px}
+
+/* Header rows */
+.exit-tbl thead tr:first-child th{
+  background:var(--s0);padding:7px 10px;border-bottom:1px solid var(--b);
+  font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;
+  color:var(--t2);white-space:nowrap;vertical-align:middle
+}
+.exit-tbl thead tr:second-child th{/* second header row */}
+.gh100{background:var(--g1h);color:#60a5fa;border-bottom:2px solid #3b82f6}
+.gh150{background:var(--g2h);color:#c4b5fd;border-bottom:2px solid #8b5cf6}
+.gh200{background:var(--g3h);color:#5eead4;border-bottom:2px solid #14b8a6}
+.gsub{font-size:10px;font-weight:500;color:var(--t2);background:var(--s0);
+  padding:4px 10px;border-bottom:1px solid var(--b)}
+
+/* Data rows */
+.exit-tbl tbody tr:hover td{background:var(--s3)!important}
+.exit-tbl tbody td{
+  padding:9px 10px;border-bottom:1px solid var(--b);vertical-align:top
+}
+.exit-tbl tbody tr.atm-row td{font-weight:600}
+.exit-tbl tbody tr.atm-row .flp-col{color:var(--acc)}
+
+/* Fixed columns */
+.flp-col{
+  font-size:13px;font-weight:600;color:var(--t);width:70px;
+  white-space:nowrap;background:var(--s1)!important
+}
+.k-col{
+  width:110px;white-space:nowrap;background:var(--s1)!important;
+  border-right:1px solid var(--b)
+}
+.k-num{font-size:13px;font-weight:600}
+
+/* Gap cells */
+.gap-cell{padding:8px 10px!important;vertical-align:top}
+.gc100{background:var(--g1)}.gc150{background:var(--g2)}.gc200{background:var(--g3)}
+.gc100.ideal{background:rgba(59,130,246,.22)}
+.gc150.ideal{background:rgba(139,92,246,.22)}
+.gc200.ideal{background:rgba(20,184,166,.22)}
+.gc100.pass,.gc150.pass,.gc200.pass{background:rgba(34,197,94,.14)}
+.gc100.warn,.gc150.warn,.gc200.warn{background:rgba(245,158,11,.12)}
+.gc100.fail,.gc150.fail,.gc200.fail{background:rgba(239,68,68,.07);opacity:.55}
+
+/* Content inside gap cell */
+.bf-rate{font-size:15px;font-weight:700;margin-bottom:2px}
+.val-pct{font-size:11px;font-weight:600;margin-bottom:3px}
+.v-ideal{color:#60a5fa}
+.v-pass{color:#4ade80}
+.v-warn{color:#fbbf24}
+.v-fail{color:#f87171}
+
+/* Mini add button */
+.madd{
+  display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;
+  cursor:pointer;border:1px solid currentColor;background:transparent;font-family:var(--f);
+  margin-top:2px;opacity:.7;transition:opacity .1s
+}
+.madd:hover:not(:disabled){opacity:1;background:rgba(255,255,255,.08)}
+.madd:disabled{opacity:.2;cursor:not-allowed}
+.madd.c100{color:#60a5fa}.madd.c150{color:#c4b5fd}.madd.c200{color:#5eead4}
+
+/* Tags */
+.tag{display:inline-block;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700}
+.ti{background:var(--bga);color:var(--acc)}
+.tp{background:var(--bgs);color:var(--suc)}
+.tw{background:var(--bgw);color:var(--wrn)}
+.tf{background:var(--bgd);color:var(--dng)}
+.tm{background:var(--bgs);color:var(--suc)}
+.ta{background:var(--bgw);color:var(--wrn)}
+.to{background:var(--bga);color:var(--acc)}
+
+/* Other table */
+.tbl{width:100%;border-collapse:collapse;font-size:11px}
+.tbl th{background:var(--s0);color:var(--t2);font-weight:500;padding:5px 8px;text-align:left;
+  border-bottom:1px solid var(--b);font-size:10px;text-transform:uppercase;white-space:nowrap}
+.tbl td{padding:6px 8px;border-bottom:1px solid var(--b);vertical-align:middle}
+.tbl tr.hl td{background:var(--bga);font-weight:500}
+.tbl tr:hover td{background:var(--s2)}
+
+/* Info box */
+.ib{
+  background:var(--s0);border:1px solid var(--b);border-left:3px solid var(--acc);
+  border-radius:5px;padding:9px 12px;font-size:11px;color:var(--t2);margin-top:10px;line-height:1.7
+}
+.ib b{color:var(--t)}.ib.suc{border-left-color:var(--suc)}.ib.warn{border-left-color:var(--wrn)}
+
+/* Gauges */
+.grw{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.grl{font-size:11px;color:var(--t2);width:88px;flex-shrink:0}
+.grt{flex:1;height:6px;background:var(--s0);border-radius:3px;overflow:hidden}
+.grf{height:100%;border-radius:3px;transition:width .3s}
+.grf.g{background:var(--suc)}.grf.a{background:var(--wrn)}.grf.r{background:var(--dng)}
+.grv{font-size:12px;font-weight:500;width:80px;text-align:right}
+.gnote{font-size:10px;color:var(--t3);padding-left:96px;margin-bottom:8px}
+
+/* Misc */
+.div{height:1px;background:var(--b);margin:12px 0}
+.pass{color:var(--suc);font-weight:600}
+.warn{color:var(--wrn);font-weight:600}
+.fail{color:var(--dng);font-weight:600}
+.posform{background:var(--s1);border:1px solid var(--ba);border-radius:8px;padding:12px;margin-bottom:10px}
+.rbox{background:var(--s1);border:1px solid var(--ba);border-radius:8px;padding:12px}
+.rd{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.ri .ril{font-size:10px;color:var(--t2)}
+.ri .riv{font-size:12px;font-weight:500;margin-top:1px}
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sc{background:var(--s1);border:1px solid var(--b);border-radius:7px;padding:10px}
+.sc.act{border-color:var(--acc);background:var(--bga)}
+.scn{font-size:9px;color:var(--t2);font-weight:600;text-transform:uppercase;margin-bottom:3px}
+.sct{font-size:12px;font-weight:500;margin-bottom:4px}
+.sca{font-size:10px;color:var(--t2);line-height:1.5}
+.scv{font-size:10px;color:var(--acc);margin-top:4px;font-style:italic}
+.paysvg{width:100%;border:1px solid var(--b);border-radius:6px;background:var(--s0);display:block;margin-top:8px}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{display:inline-block;width:11px;height:11px;border:2px solid var(--b);
+  border-top-color:var(--acc);border-radius:50%;animation:spin .7s linear infinite;
+  vertical-align:middle;margin-right:4px}
+
+/* Legend strip */
+.legend{display:flex;gap:12px;align-items:center;font-size:11px;color:var(--t2);
+  margin-bottom:10px;flex-wrap:wrap}
+.leg-dot{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:4px}
+.rec-col{outline:2px solid var(--acc);outline-offset:1px}
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ─────────────────────────────────────────────────────── -->
+<div id="hbar">
+  <div class="hm"><span class="hl">NIFTY 50</span><span class="hv" id="h-sp">–</span></div>
+  <div class="hm"><span class="hl">India VIX</span><span class="hv" id="h-vx">–</span></div>
+  <div class="hm"><span class="hl">ATM Straddle</span><span class="hv" id="h-st">–</span></div>
+  <div class="hm"><span class="hl">PCR</span><span class="hv" id="h-pcr">–</span></div>
+  <div class="hm"><span class="hl">Max Pain</span><span class="hv" id="h-mp">–</span></div>
+  <div class="hm"><span class="hl">Rec. Gap</span><span class="hv" id="h-gap">–</span></div>
+  <span class="badge rb-sw" id="h-reg">–</span>
+  <span class="badge demo" id="h-mode">◉ DEMO</span>
+  <div class="hm" style="margin-left:auto">
+    <span class="hl">IST</span>
+    <span class="hv" id="h-cl" style="font-size:11px">--:--:--</span>
+  </div>
+</div>
+
+<!-- ── TABS ───────────────────────────────────────────────────────── -->
+<div id="tabs">
+  <button class="tab active" onclick="doTab('exit',this)">📊 Exit Tool</button>
+  <button class="tab" onclick="doTab('conn',this)">⚡ Connect</button>
+  <button class="tab" onclick="doTab('cal',this)">Calibrator</button>
+  <button class="tab" onclick="doTab('csim',this)">Chain Sim</button>
+  <button class="tab" onclick="doTab('pos',this)">Positions</button>
+  <button class="tab" onclick="doTab('rsk',this)">Risk</button>
+</div>
+
+<!-- ── PANELS ─────────────────────────────────────────────────────── -->
+<div id="p-exit" class="pnl on"></div>
+<div id="p-conn" class="pnl"></div>
+<div id="p-cal"  class="pnl"></div>
+<div id="p-csim" class="pnl"></div>
+<div id="p-pos"  class="pnl"></div>
+<div id="p-rsk"  class="pnl"></div>
+
+<script>
+'use strict';
+
+// ════════════════════════════════════════════════════════════════════
+// 1. MATH
+// ════════════════════════════════════════════════════════════════════
+function ncdf(x){
+  const t=1/(1+0.2316419*Math.abs(x));
+  const d=0.3989423*Math.exp(-x*x/2);
+  let p=d*t*(0.319382+t*(-0.356564+t*(1.781478+t*(-1.821256+t*1.330274))));
+  return x>0?1-p:p;
+}
+function bsc(S,K,T,v){
+  if(T<1e-5||v<.005||K<=0)return Math.max(0,S-K);
+  const d1=(Math.log(S/K)+.5*v*v*T)/(v*Math.sqrt(T));
+  return Math.max(.05,S*ncdf(d1)-K*ncdf(d1-v*Math.sqrt(T)));
+}
+function bsp(S,K,T,v){
+  if(T<1e-5||v<.005||K<=0)return Math.max(0,K-S);
+  const d1=(Math.log(S/K)+.5*v*v*T)/(v*Math.sqrt(T));
+  return Math.max(.05,K*ncdf(v*Math.sqrt(T)-d1)-S*ncdf(-d1));
+}
+function ivol(sp,st,dte){
+  const T=Math.max(.001,dte/252);
+  return Math.min(3,Math.max(.04,st/(0.7979*sp*Math.sqrt(T))));
+}
+const r1=x=>Math.round(x*10)/10;
+const r2=x=>Math.round(x*100)/100;
+const fmt=n=>Number(n).toLocaleString('en-IN');
+function gf(o,...ks){for(const k of ks)if(o&&o[k]!=null)return+o[k]||0;return 0;}
+
+// ════════════════════════════════════════════════════════════════════
+// 2. FYERS DATA STORE
+// ════════════════════════════════════════════════════════════════════
+const FD={
+  connected:false,loading:false,error:null,lastUpdated:null,
+  spot:null,vix:null,expiries:[],selExp:0,
+  chain:[],atm:null,straddle:null,pcr:null,maxPain:null,
+  chg:0,chgP:0,
+};
+
+// ════════════════════════════════════════════════════════════════════
+// 3. STATE
+// ════════════════════════════════════════════════════════════════════
+const ST={
+  clientId:localStorage.getItem('fy_cid')||'',
+  accessToken:localStorage.getItem('fy_tok')||'',
+  proxyUrl:localStorage.getItem('fy_px')||'',
+  strikeCount:14,autoRId:null,
+  spot:24500,vix:13.5,sw:220,snw:340,sm:520,dte:4,exp:'w',lotSize:75,
+  positions:[],nextId:1,selPosId:null,pendingAdd:null,
+  cs:{str:24500,type:'C',gap:100,dbt:14,flp:110},
+  rsk:{dlim:-5000,wlim:-15000,dpnl:-800,wpnl:2200,dlta:8,vga:-85,mdt:50,mvg:300},
+  get aSpot(){return FD.spot||this.spot;},
+  get aVix(){return FD.vix||this.vix;},
+  get aStrd(){return FD.straddle||({w:this.sw,nw:this.snw,m:this.sm}[this.exp]||this.sw);},
+  get T(){return Math.max(.001,this.dte/252);},
+  get v(){return ivol(this.aSpot,this.aStrd,this.dte);},
+  get recGap(){const s=this.aStrd;return s<=140?50:s<=240?100:s<=380?150:200;},
+  get aCombo(){const s=this.aStrd;return s<=160?{l:'1:2',r:2.0}:s<=280?{l:'2:3',r:1.5}:{l:'3:4',r:1.33};},
+  get regime(){return this.aVix>20?{l:'High Vol',c:'rb-hv'}:this.aVix>14?{l:'Moderate',c:'rb-sw'}:{l:'Low Vol',c:'rb-sw'};},
+  get isOpen(){
+    const i=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));
+    const d=i.getDay(),m=i.getHours()*60+i.getMinutes();
+    return d>=1&&d<=5&&m>=555&&m<=930;
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════
+// 4. FYERS API
+// ════════════════════════════════════════════════════════════════════
+const API={
+  BASE:'https://api.fyers.in/api/v3',
+  get hdrs(){return{'Authorization':`${ST.clientId}:${ST.accessToken}`};},
+  url(p){return ST.proxyUrl?`${ST.proxyUrl.replace(/\/$/,'')}${p}`:this.BASE+p;},
+  async get(path){
+    const r=await fetch(this.url(path),{method:'GET',headers:this.hdrs,mode:'cors'});
+    if(!r.ok)throw new Error(`HTTP ${r.status} ${r.statusText}`);
+    const d=await r.json();
+    if(d.s&&d.s!=='ok')throw new Error(d.message||d.errmsg||'API error');
+    return d;
+  },
+  quotes(syms){return this.get(`/quotes?symbols=${encodeURIComponent(Array.isArray(syms)?syms.join(','):syms)}`);},
+  optionChain(sym='NSE:NIFTY50-INDEX'){return this.get(`/data/option-chain?symbol=${encodeURIComponent(sym)}&strikecount=${ST.strikeCount}`);},
+};
+
+async function doConnect(){
+  const cid=document.getElementById('ci-id'),ctok=document.getElementById('ci-tok'),cpx=document.getElementById('ci-px');
+  if(cid)ST.clientId=cid.value.trim();
+  if(ctok)ST.accessToken=ctok.value.trim();
+  if(cpx)ST.proxyUrl=cpx.value.trim();
+  if(!ST.clientId||!ST.accessToken){alert('Enter Client ID and Access Token.');return;}
+  localStorage.setItem('fy_cid',ST.clientId);
+  localStorage.setItem('fy_tok',ST.accessToken);
+  localStorage.setItem('fy_px',ST.proxyUrl);
+  await fetchAll();
+}
+
+async function fetchAll(){
+  FD.loading=true;FD.error=null;
+  rHdr();if(curTab==='conn')rConn();
+  try{
+    const [qd,od]=await Promise.all([
+      API.quotes(['NSE:NIFTY50-INDEX','NSE:INDIA VIX-INDEX']),
+      API.optionChain(),
+    ]);
+    parseQuotes(qd);parseOC(od);
+    FD.connected=true;FD.lastUpdated=new Date();
+  }catch(e){
+    FD.error=e.message;
+    try{const qd=await API.quotes(['NSE:NIFTY50-INDEX','NSE:INDIA VIX-INDEX']);parseQuotes(qd);FD.connected=true;FD.lastUpdated=new Date();}
+    catch(e2){FD.connected=false;FD.error=e2.message;}
+  }
+  FD.loading=false;rHdr();renderCur();
+}
+
+async function doRefresh(){if(!ST.clientId||!ST.accessToken)return;await fetchAll();}
+
+function doDisconnect(){
+  FD.connected=false;FD.chain=[];FD.spot=null;FD.vix=null;FD.straddle=null;
+  if(ST.autoRId){clearInterval(ST.autoRId);ST.autoRId=null;}
+  rHdr();renderCur();
+}
+
+function toggleAuto(on){
+  if(ST.autoRId){clearInterval(ST.autoRId);ST.autoRId=null;}
+  if(on)ST.autoRId=setInterval(doRefresh,30000);
+}
+
+function parseQuotes(d){
+  for(const item of(d.d||[])){
+    const v=item.v||{};const lp=gf(v,'lp','last_price','close');if(!lp)continue;
+    if(item.n==='NSE:NIFTY50-INDEX'){FD.spot=lp;ST.spot=lp;FD.chg=gf(v,'ch');FD.chgP=r2(gf(v,'chp'));}
+    if(item.n==='NSE:INDIA VIX-INDEX'){FD.vix=r2(lp);ST.vix=r2(lp);}
+  }
+}
+
+function parseOC(data){
+  const raw=data.data||{};
+  const und=raw.underlyingData||{};const lp=gf(und,'ltp','last_price');
+  if(lp){FD.spot=lp;ST.spot=lp;}
+  const expList=raw.expiryData||[];
+  if(!expList.length)throw new Error('Empty expiryData');
+  FD.expiries=expList.map(e=>e.expiry||e.date||String(e));
+  const sel=expList[Math.min(FD.selExp,expList.length-1)];
+  FD.chain=(sel.optionChainData||sel.data||[]).map(item=>{
+    const K=item.strikePrice||item.strike_price||0;if(!K)return null;
+    const c=item.callOptions||item.CE||{},p=item.putOptions||item.PE||{};
+    function parse(o){return{ltp:gf(o,'ltp','last_price'),oi:gf(o,'open_interest','oi'),oiChg:gf(o,'oi_change','change_in_oi'),vol:gf(o,'volume'),iv:gf(o,'iv')};}
+    return{strike:K,call:parse(c),put:parse(p)};
+  }).filter(Boolean).sort((a,b)=>a.strike-b.strike);
+  if(FD.spot&&FD.chain.length){
+    const atm=FD.chain.reduce((a,b)=>Math.abs(b.strike-FD.spot)<Math.abs(a.strike-FD.spot)?b:a);
+    FD.atm=atm.strike;FD.straddle=r1(atm.call.ltp+atm.put.ltp);ST.sw=FD.straddle;
+  }
+  const cOI=FD.chain.reduce((s,c)=>s+c.call.oi,0),pOI=FD.chain.reduce((s,c)=>s+c.put.oi,0);
+  FD.pcr=cOI>0?r2(pOI/cOI):0;
+  let minL=Infinity,mp=0;
+  for(const t of FD.chain){const K=t.strike;let L=0;for(const o of FD.chain)L+=Math.max(0,K-o.strike)*o.call.oi+Math.max(0,o.strike-K)*o.put.oi;if(L<minL){minL=L;mp=K;}}
+  FD.maxPain=mp;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 5. PRICE HELPERS
+// ════════════════════════════════════════════════════════════════════
+function getCallLTP(K){
+  if(FD.connected&&FD.chain.length){const r=FD.chain.find(c=>c.strike===K);if(r&&r.call.ltp)return r1(r.call.ltp);}
+  return r1(bsc(ST.aSpot,K,ST.T,ST.v));
+}
+function getPutLTP(K){
+  if(FD.connected&&FD.chain.length){const r=FD.chain.find(c=>c.strike===K);if(r&&r.put.ltp)return r1(r.put.ltp);}
+  return r1(bsp(ST.aSpot,K,ST.T,ST.v));
+}
+function cbf(K,g){return Math.max(.5,r1(getCallLTP(K)-2*getCallLTP(K+g)+getCallLTP(K+2*g)));}
+function pbf(K,g){return Math.max(.5,r1(getPutLTP(K)-2*getPutLTP(K-g)+getPutLTP(K-2*g)));}
+function vp(bf,flp){return flp>0?Math.round(bf/flp*1000)/10:0;}
+function vs(p){return p<=10?{c:'ti',l:'Ideal',vc:'v-ideal',gc:'ideal'}:p<=20?{c:'tp',l:'Pass',vc:'v-pass',gc:'pass'}:p<=25?{c:'tw',l:'Border',vc:'v-warn',gc:'warn'}:{c:'tf',l:'Fail',vc:'v-fail',gc:'fail'};}
+function mn(K,t){if(t==='C')return K<ST.aSpot-8?'ITM':K>ST.aSpot+8?'OTM':'ATM';return K>ST.aSpot+8?'ITM':K<ST.aSpot-8?'OTM':'ATM';}
+function mc(m){return m==='ITM'?'tm':m==='ATM'?'ta':'to';}
+
+// ════════════════════════════════════════════════════════════════════
+// 6. HEADER
+// ════════════════════════════════════════════════════════════════════
+function rHdr(){
+  const sp=ST.aSpot,vx=ST.aVix,st=ST.aStrd,chg=FD.chg||0,chgP=FD.chgP||0;
+  const chgCol=chg>=0?'var(--suc)':'var(--dng)';
+  document.getElementById('h-sp').innerHTML=`${fmt(sp)}<span style="font-size:10px;color:${chgCol}"> ${chg>=0?'▲':'▼'}${Math.abs(chg).toFixed(1)}</span>`;
+  document.getElementById('h-vx').textContent=vx.toFixed?vx.toFixed(2):vx;
+  document.getElementById('h-st').textContent=st||'–';
+  document.getElementById('h-pcr').textContent=FD.pcr||'–';
+  document.getElementById('h-mp').textContent=FD.maxPain?fmt(FD.maxPain):'–';
+  document.getElementById('h-gap').textContent=ST.recGap+' pts';
+  const rb=document.getElementById('h-reg');rb.textContent=ST.regime.l;rb.className='badge '+ST.regime.c;
+  const mb=document.getElementById('h-mode');
+  if(FD.loading){mb.className='badge demo';mb.innerHTML='<span class="spin"></span>Fetching…';}
+  else if(FD.connected){mb.className='badge live';mb.textContent='● LIVE';}
+  else if(FD.error){mb.className='badge err';mb.textContent='✗ Error';}
+  else{mb.className='badge demo';mb.textContent='◉ DEMO';}
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 7. EXIT TOOL  ← THE MAIN PANEL
+// ════════════════════════════════════════════════════════════════════
+function rExit(){
+  const sp=ST.aSpot,atm=FD.atm||Math.round(sp/50)*50;
+  const GAPS=[100,150,200];
+  const recGap=ST.recGap;
+
+  /* colour class for gap header */
+  const gHdr=['gh100','gh150','gh200'];
+  /* colour class for gap cell */
+  const gCell=['gc100','gc150','gc200'];
+  /* colour for add button */
+  const addCls=['c100','c150','c200'];
+
+  /* gap cell quality class */
+  function qClass(pct){return pct<=10?'ideal':pct<=20?'pass':pct<=25?'warn':'fail';}
+
+  /* build one gap <td> */
+  function gapTD(K,type,g,idx){
+    const flp=type==='C'?getCallLTP(K):getPutLTP(K);
+    const bf=type==='C'?cbf(K,g):pbf(K,g);
+    const pct=vp(bf,flp),st=vs(pct),q=qClass(pct);
+    const pass=pct<=25;
+    const isRec=g===recGap;
+    return`<td class="gap-cell ${gCell[idx]} ${q}${isRec?' rec-col':''}">
+      <div class="bf-rate">${bf}</div>
+      <div class="val-pct ${st.vc}">${pct.toFixed(1)}% <span class="tag ${st.c}">${st.l}</span></div>
+      <button class="madd ${addCls[idx]}" onclick="qAdd('${type}',${K},${g},${bf},${flp})" ${!pass?'disabled':''}>${pass?'+Add':''}</button>
+    </td>`;
+  }
+
+  /* one data row */
+  function row(K,type){
+    const flp=type==='C'?getCallLTP(K):getPutLTP(K);
+    const m=mn(K,type);
+    const isATM=m==='ATM';
+    return`<tr ${isATM?'class="atm-row"':''}>
+      <td class="flp-col">${flp}</td>
+      <td class="k-col">
+        <span class="k-num">${fmt(K)}</span>
+        <span class="tag ${mc(m)}" style="margin-left:4px">${m}</span>
+      </td>
+      ${GAPS.map((g,i)=>gapTD(K,type,g,i)).join('')}
+    </tr>`;
+  }
+
+  /* thead shared for call and put */
+  function thead(){
+    const recLabel=g=>g===recGap?` ★`:''
+    return`<thead>
+      <tr>
+        <th rowspan="2" style="background:var(--s0);min-width:68px">FLP (₹)</th>
+        <th rowspan="2" style="background:var(--s0);min-width:110px;border-right:1px solid var(--b)">Strike K</th>
+        ${GAPS.map((g,i)=>`<th class="${gHdr[i]}" style="text-align:center;padding:7px 14px;min-width:130px">
+          ${g} GAP${recLabel(g)}
+        </th>`).join('')}
+      </tr>
+      <tr>
+        ${GAPS.map((g,i)=>`<th class="gsub" style="text-align:left;min-width:130px">BF Rate &nbsp;·&nbsp; Val% &nbsp;·&nbsp; Add</th>`).join('')}
+      </tr>
+    </thead>`;
+  }
+
+  /* call strikes: ATM-100 to ATM+500 step 50 */
+  const callStrikes=[];
+  for(let K=atm-100;K<=atm+500;K+=50)callStrikes.push(K);
+
+  /* put strikes: ATM+100 to ATM-500 step 50, descending */
+  const putStrikes=[];
+  for(let K=atm+100;K>=atm-500;K-=50)putStrikes.push(K);
+
+  document.getElementById('p-exit').innerHTML=`
+<!-- ── INPUT BAR ── -->
+<div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px;
+  padding:10px 12px;background:var(--s1);border:1px solid var(--b);border-radius:8px">
+  <div class="fg"><label>NIFTY Spot</label>
+    <input type="number" value="${sp}" step="50" style="width:100px"
+      oninput="ST.spot=+this.value;rHdr();rExit()"></div>
+  <div class="fg"><label>ATM Straddle ${FD.connected?'<span class="tag tp">LIVE</span>':''}</label>
+    <input type="number" value="${ST.aStrd}" step="5" style="width:90px"
+      oninput="ST.sw=+this.value;rHdr();rExit()"></div>
+  <div class="fg"><label>VIX</label>
+    <input type="number" value="${ST.aVix}" step=".1" style="width:70px"
+      oninput="ST.vix=+this.value;rHdr();rExit()"></div>
+  <div class="fg"><label>DTE</label>
+    <input type="number" value="${ST.dte}" min="1" max="25" style="width:60px"
+      oninput="ST.dte=+this.value;rExit()"></div>
+  <div class="fg"><label>Expiry</label>
+    <select style="width:110px" onchange="ST.exp=this.value;rHdr();rExit()">
+      <option value="w" ${ST.exp==='w'?'selected':''}>Weekly</option>
+      <option value="nw" ${ST.exp==='nw'?'selected':''}>Next Week</option>
+      <option value="m" ${ST.exp==='m'?'selected':''}>Monthly</option>
+    </select></div>
+  <div style="margin-left:auto;font-size:11px;color:var(--t2);text-align:right">
+    ATM: <b style="color:var(--acc)">${fmt(atm)}</b><br>
+    Rec. gap: <b style="color:var(--acc)">${recGap} pts · ${ST.aCombo.l}</b>
+  </div>
+</div>
+
+<!-- ── LEGEND ── -->
+<div class="legend">
+  <span><span class="leg-dot" style="background:rgba(59,130,246,.35)"></span>Ideal ≤10%</span>
+  <span><span class="leg-dot" style="background:rgba(34,197,94,.35)"></span>Pass ≤20%</span>
+  <span><span class="leg-dot" style="background:rgba(245,158,11,.25)"></span>Borderline 20–25%</span>
+  <span><span class="leg-dot" style="background:rgba(239,68,68,.2)"></span>Fail &gt;25%</span>
+  <span style="margin-left:8px">★ = recommended gap (${recGap} pts) · outlined column</span>
+  &nbsp;·&nbsp;
+  ${FD.connected?'<b style="color:var(--suc)">● Live Fyers prices</b>':'<b style="color:var(--wrn)">◉ Demo (Black-Scholes estimates)</b>'}
+</div>
+
+<!-- ── CALL SIDE ── -->
+<div class="st">CALL SIDE — Buy K &nbsp;·&nbsp; Sell 2×(K+gap) &nbsp;·&nbsp; Buy (K+2×gap)</div>
+<div class="scrollx">
+  <table class="exit-tbl">
+    ${thead()}
+    <tbody>${callStrikes.map(K=>row(K,'C')).join('')}</tbody>
+  </table>
+</div>
+
+<!-- ── PUT SIDE ── -->
+<div class="st" style="margin-top:22px">PUT SIDE — Buy K &nbsp;·&nbsp; Sell 2×(K−gap) &nbsp;·&nbsp; Buy (K−2×gap)</div>
+<div class="scrollx">
+  <table class="exit-tbl">
+    ${thead()}
+    <tbody>${putStrikes.map(K=>row(K,'P')).join('')}</tbody>
+  </table>
+</div>
+
+<div class="ib">
+  <b>FLP (First Leg Premium)</b> = live/estimated option price at strike K. &nbsp;
+  <b>Val% = BF Rate ÷ FLP × 100</b> — must be ≤20% to enter. ≤10% is ideal. &nbsp;
+  Starred column (★) = recommended gap based on current straddle ÷ 2. &nbsp;
+  Click <b>+Add</b> in any gap cell to send that exact trade to the Position Tracker.
+</div>`;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 8. CONNECT TAB
+// ════════════════════════════════════════════════════════════════════
+function rConn(){
+  const ok=FD.connected,ld=FD.loading;
+  const status=ld?`<span class="tag tw"><span class="spin"></span>Connecting…</span>`
+    :ok?`<span class="tag tp">● Connected · ${FD.lastUpdated?.toLocaleTimeString('en-IN')||''}</span>`
+    :FD.error?`<span class="tag tf">✗ ${FD.error}</span>`
+    :`<span class="tag to">Not connected — Demo mode</span>`;
+  document.getElementById('p-conn').innerHTML=`
+<div class="st">Fyers API credentials</div>
+<div class="fr" style="grid-template-columns:1fr 1fr">
+  <div class="fg"><label>Client ID (App ID)</label>
+    <input id="ci-id" type="text" value="${ST.clientId}" placeholder="XC12345-100"></div>
+  <div class="fg"><label>Access Token (paste daily)</label>
+    <input id="ci-tok" type="password" value="${ST.accessToken}" placeholder="Paste today's access token"></div>
+</div>
+<div class="fr">
+  <div class="fg"><label>CORS Proxy URL (if needed)</label>
+    <input id="ci-px" type="text" value="${ST.proxyUrl}" placeholder="http://localhost:8080/https://api.fyers.in/api/v3"></div>
+  <div class="fg"><label>Strikes each side of ATM</label>
+    <input type="number" value="${ST.strikeCount}" min="5" max="20" oninput="ST.strikeCount=+this.value"></div>
+  <div class="fg"><label>Option chain expiry</label>
+    <select onchange="FD.selExp=+this.value">
+      ${FD.expiries.length
+        ?FD.expiries.map((e,i)=>`<option value="${i}" ${i===FD.selExp?'selected':''}>${e}</option>`).join('')
+        :'<option>Connect first</option>'}
+    </select></div>
+</div>
+<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+  <button class="btn btn-p" onclick="doConnect()">Connect &amp; Fetch Live Data</button>
+  <button class="btn btn-s" onclick="doRefresh()" ${!ok||ld?'disabled':''}>↻ Refresh</button>
+  <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--t2);cursor:pointer">
+    <input type="checkbox" ${ST.autoRId?'checked':''} onchange="toggleAuto(this.checked)">
+    Auto-refresh every 30 s
+  </label>
+  ${ok?`<button class="btn btn-s" onclick="doDisconnect()">Disconnect</button>`:''}
+  ${status}
+</div>
+<div class="div"></div>
+<div class="ib">
+  <b>Step 1</b> — Log in to <a href="https://myapi.fyers.in" target="_blank">myapi.fyers.in</a>, create an app, note your App ID.<br>
+  <b>Step 2</b> — Every morning generate your access token via the Fyers OAuth flow or SDK.<br>
+  <b>Step 3</b> — Paste above and click Connect.<br><br>
+  <b>CORS fix (local file):</b> Run <code>npx cors-anywhere</code> on port 8080, then enter<br>
+  <code>http://localhost:8080/https://api.fyers.in/api/v3</code> in the Proxy URL field.
+</div>
+<div class="div"></div>
+<div class="st">Manual inputs (Demo mode)</div>
+<div class="fr">
+  <div class="fg"><label>NIFTY Spot</label><input type="number" value="${ST.spot}" step="50" oninput="ST.spot=+this.value;rHdr()"></div>
+  <div class="fg"><label>VIX</label><input type="number" value="${ST.vix}" step=".1" oninput="ST.vix=+this.value;rHdr()"></div>
+  <div class="fg"><label>Weekly straddle</label><input type="number" value="${ST.sw}" step="5" oninput="ST.sw=+this.value;rHdr()"></div>
+  <div class="fg"><label>Next wk straddle</label><input type="number" value="${ST.snw}" step="5" oninput="ST.snw=+this.value"></div>
+  <div class="fg"><label>Monthly straddle</label><input type="number" value="${ST.sm}" step="5" oninput="ST.sm=+this.value"></div>
+  <div class="fg"><label>DTE (trading days)</label><input type="number" value="${ST.dte}" min="1" max="25" oninput="ST.dte=+this.value"></div>
+</div>`;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 9. CALIBRATOR
+// ════════════════════════════════════════════════════════════════════
+function rCal(){
+  const c=ST.aCombo,st=ST.aStrd;
+  const rows=[['Weekly',ST.sw,'w'],['Next Wk',ST.snw,'nw'],['Monthly',ST.sm,'m']].map(([l,s,k])=>{
+    const g=s<=140?50:s<=240?100:s<=380?150:200;const cb=s<=160?'1:2':s<=280?'2:3':'3:4';
+    return`<tr ${k===ST.exp?'class="hl"':''}><td>${l}</td><td><b>${s}</b></td><td>${g} pts</td><td>${cb}</td><td>±${s} pts</td></tr>`;
+  }).join('');
+  document.getElementById('p-cal').innerHTML=`
+<div class="st">Straddle inputs</div>
+<div class="fr">
+  <div class="fg"><label>Weekly</label><input type="number" value="${ST.sw}" step="5" oninput="ST.sw=+this.value;rCalOut()"></div>
+  <div class="fg"><label>Next week</label><input type="number" value="${ST.snw}" step="5" oninput="ST.snw=+this.value;rCalOut()"></div>
+  <div class="fg"><label>Monthly</label><input type="number" value="${ST.sm}" step="5" oninput="ST.sm=+this.value;rCalOut()"></div>
+  <div class="fg"><label>Active expiry</label><select onchange="ST.exp=this.value;rCalOut()">
+    <option value="w" ${ST.exp==='w'?'selected':''}>Weekly</option>
+    <option value="nw" ${ST.exp==='nw'?'selected':''}>Next week</option>
+    <option value="m" ${ST.exp==='m'?'selected':''}>Monthly</option>
+  </select></div>
+  <div class="fg"><label>DTE</label><input type="number" value="${ST.dte}" min="1" max="25" oninput="ST.dte=+this.value;rCalOut()"></div>
+</div>
+<div class="div"></div><div id="cal-out"></div>`;
+  rCalOut();
+}
+function rCalOut(){
+  const el=document.getElementById('cal-out');if(!el)return;
+  const c=ST.aCombo,st=ST.aStrd;
+  el.innerHTML=`
+<div class="cards">
+  <div class="card blue"><div class="cl">Recommended gap</div><div class="cv">${ST.recGap} pts</div><div class="cs">Straddle÷2=${Math.round(st/2)} → nearest 50</div></div>
+  <div class="card blue"><div class="cl">Combination</div><div class="cv">${c.l}</div><div class="cs">Exit ratio ${c.r}</div></div>
+  <div class="card"><div class="cl">Adverse tolerance</div><div class="cv">±${st} pts</div><div class="cs">Before adjustment</div></div>
+  <div class="card"><div class="cl">Implied vol</div><div class="cv">${(ST.v*100).toFixed(1)}%</div><div class="cs">Annualised</div></div>
+</div>
+<div class="st">Reference</div>
+<table class="tbl"><thead><tr><th>Straddle</th><th>Gap</th><th>Combo</th><th>Max profit</th><th>Tolerance</th></tr></thead>
+<tbody>
+<tr ${st<=140?'class="hl"':''}><td>≤140</td><td>50 pts</td><td>1:2</td><td>50 pts</td><td>±140</td></tr>
+<tr ${st>140&&st<=240?'class="hl"':''}><td>141–240</td><td>100 pts</td><td>2:3</td><td>100 pts</td><td>±240</td></tr>
+<tr ${st>240&&st<=380?'class="hl"':''}><td>241–380</td><td>150 pts</td><td>3:4</td><td>150 pts</td><td>±380</td></tr>
+<tr ${st>380?'class="hl"':''}><td>&gt;380</td><td>200 pts</td><td>3:4</td><td>200 pts</td><td>±straddle</td></tr>
+</tbody></table>`;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 10. CHAIN SIM
+// ════════════════════════════════════════════════════════════════════
+function rCsim(){
+  const cs=ST.cs,evp=vp(cs.dbt,cs.flp),evs=vs(evp);
+  document.getElementById('p-csim').innerHTML=`
+<div class="posform">
+<div class="st" style="margin-top:0">Trade inputs</div>
+<div class="fr">
+  <div class="fg"><label>Strike K</label><input id="cs-s" type="number" value="${cs.str}" step="50" oninput="ST.cs.str=+this.value;rCsOut()"></div>
+  <div class="fg"><label>Type</label><select onchange="ST.cs.type=this.value;rCsOut()">
+    <option value="C" ${(cs.type||'C')==='C'?'selected':''}>Call BF</option>
+    <option value="P" ${cs.type==='P'?'selected':''}>Put BF</option></select></div>
+  <div class="fg"><label>Gap</label><input type="number" value="${cs.gap}" step="50" oninput="ST.cs.gap=+this.value;rCsOut()"></div>
+  <div class="fg"><label>Debit paid (₹)</label><input type="number" value="${cs.dbt}" step=".5" oninput="ST.cs.dbt=+this.value;rCsOut()"></div>
+  <div class="fg"><label>FLP at entry (₹)</label><input type="number" value="${cs.flp}" step=".5" oninput="ST.cs.flp=+this.value;rCsOut()"></div>
+</div>
+<div style="font-size:11px;color:var(--t2)">Entry Val%: <b class="${evs.vc}">${evp.toFixed(1)}%</b> <span class="tag ${evs.c}">${evs.l}</span> ${evp<=20?'✓ Passes':'✗ Fails'} Value Concept</div>
+</div>
+<div id="csim-out"></div>`;
+  rCsOut();
+}
+function rCsOut(){
+  const cs=ST.cs,el=document.getElementById('csim-out');if(!el)return;
+  const type=cs.type||'C';
+  function srow(mv){
+    const ns=ST.aSpot+mv;
+    const dvix=mv<0?Math.abs(mv/ST.aSpot)*75:-mv/ST.aSpot*45;
+    const nvix=Math.max(8,ST.aVix+dvix);
+    const nst=ST.aStrd*(nvix/ST.aVix)*(ns/ST.aSpot);
+    const nv=ivol(ns,nst,ST.dte);
+    let nbf;
+    if(type==='C')nbf=Math.max(.5,r1(bsc(ns,cs.str,ST.T,nv)-2*bsc(ns,cs.str+cs.gap,ST.T,nv)+bsc(ns,cs.str+2*cs.gap,ST.T,nv)));
+    else nbf=Math.max(.5,r1(bsp(ns,cs.str,ST.T,nv)-2*bsp(ns,cs.str-cs.gap,ST.T,nv)+bsp(ns,cs.str-2*cs.gap,ST.T,nv)));
+    const nflp=r1(type==='C'?bsc(ns,cs.str,ST.T,nv):bsp(ns,cs.str,ST.T,nv));
+    const hp=vp(cs.dbt,nflp),pnl=r1(nbf-cs.dbt);
+    const istate=type==='C'?(cs.str<ns?'ITM':cs.str>ns+cs.gap*2?'OTM':'Near'):(cs.str>ns?'ITM':cs.str<ns-cs.gap*2?'OTM':'Near');
+    const scls=istate==='ITM'?'tm':istate==='OTM'?'to':'ta';
+    let act='';
+    if(istate==='ITM'&&Math.abs(mv)>100)act=`<span class="fail">Exit — ITM</span>`;
+    else if(hp>25)act=`<span class="fail">Exit — breach</span>`;
+    else if(hp>20)act=`<span class="warn">Review</span>`;
+    else if(pnl>cs.dbt*.8)act=`<span class="pass">Book profit</span>`;
+    else act=`<span class="pass">Hold</span>`;
+    return`<tr ${mv===0?'class="hl"':''}>
+      <td>${mv===0?'Current':mv>0?'+'+mv:mv}</td><td>${fmt(ns)}</td>
+      <td><span class="tag ${scls}">${istate}</span></td>
+      <td>${r2(nvix)}</td><td>${nbf}</td><td>${nflp}</td>
+      <td class="${hp>25?'fail':hp>20?'warn':'pass'}">${hp.toFixed(1)}%</td>
+      <td style="color:${pnl>=0?'var(--suc)':'var(--dng)'};font-weight:600">${pnl>=0?'+':''}${pnl}</td>
+      <td>${act}</td>
+    </tr>`;
+  }
+  el.innerHTML=`<div class="st">Scenario matrix</div>
+<div class="scrollx"><table class="tbl">
+<thead><tr><th>Move</th><th>NIFTY</th><th>State</th><th>VIX est.</th><th>BF value</th><th>New FLP</th><th>Hold%</th><th>P&L/lot</th><th>Decision</th></tr></thead>
+<tbody>${[-200,-150,-100,-50,0,50,100,150,200].map(srow).join('')}</tbody>
+</table></div>
+<div class="ib"><b>Hold% = Old Debit ÷ New FLP.</b> &gt;20% → exit, re-enter closer to ATM. VIX rises on market falls — use that as a scaling opportunity, not a panic exit.</div>`;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 11. POSITIONS
+// ════════════════════════════════════════════════════════════════════
+function qAdd(type,K,g,bf,flp){
+  ST.pendingAdd={type,K,gap:g,dbt:bf,flp};
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.pnl').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab')[4].classList.add('active');
+  document.getElementById('p-pos').classList.add('on');
+  curTab='pos';rPos();
+}
+
+function payoffSVG(K,g,dbt,type){
+  const W=380,H=120,PL=38,PR=12,PT=20,PB=24;
+  const pw=W-PL-PR,ph=H-PT-PB;
+  const maxP=g-dbt,minP=-dbt,rng=maxP-minP;
+  const xMin=type==='C'?K-g:K-3*g,xMax=type==='C'?K+3*g:K+g;
+  function pnl(S){if(type==='C')return Math.max(0,S-K)-2*Math.max(0,S-K-g)+Math.max(0,S-K-2*g)-dbt;return Math.max(0,K-S)-2*Math.max(0,K-g-S)+Math.max(0,K-2*g-S)-dbt;}
+  function tx(s){return PL+(s-xMin)/(xMax-xMin)*pw;}
+  function ty(p){return PT+(1-(p-minP)/rng)*ph;}
+  const N=300,pts=[];for(let i=0;i<=N;i++){const s=xMin+i*(xMax-xMin)/N;pts.push(`${tx(s).toFixed(1)},${ty(pnl(s)).toFixed(1)}`);}
+  const zy=ty(0).toFixed(1);const beL=type==='C'?K+dbt:K-dbt,beR=type==='C'?K+2*g-dbt:K-2*g+dbt;
+  const midX=(type==='C'?tx(K+g):tx(K-g)).toFixed(1);
+  const fps=[];for(let i=0;i<=N;i++){const s=xMin+i*(xMax-xMin)/N;if(s>=Math.min(beL,beR)&&s<=Math.max(beL,beR))fps.push(`${tx(s).toFixed(1)},${ty(pnl(s)).toFixed(1)}`);}
+  const lK=type==='C'?K:K-2*g,mK=type==='C'?K+g:K-g,rK=type==='C'?K+2*g:K;
+  return`<svg viewBox="0 0 ${W} ${H}" class="paysvg">
+<text x="${W/2}" y="13" text-anchor="middle" font-size="9" fill="#666">${type==='C'?'Call':'Put'} BF payoff at expiry · K=${fmt(K)} · Gap=${g} · Debit=₹${dbt}</text>
+<line x1="${PL}" y1="${PT}" x2="${PL}" y2="${H-PB+3}" stroke="#2c2c2c" stroke-width=".8"/>
+<line x1="${PL}" y1="${H-PB}" x2="${W-PR}" y2="${H-PB}" stroke="#2c2c2c" stroke-width=".8"/>
+<line x1="${PL}" y1="${zy}" x2="${W-PR}" y2="${zy}" stroke="#444" stroke-dasharray="4,3" stroke-width="1"/>
+${fps.length>2?`<path d="M${fps[0]} ${fps.slice(1).join(' ')} L${tx(Math.max(beL,beR)).toFixed(1)},${zy} L${tx(Math.min(beL,beR)).toFixed(1)},${zy}Z" fill="rgba(34,197,94,.18)"/>`:''}
+<polyline points="${pts.join(' ')}" fill="none" stroke="#3b82f6" stroke-width="2"/>
+<circle cx="${midX}" cy="${ty(maxP).toFixed(1)}" r="4" fill="#22c55e"/>
+<text x="${midX}" y="${(ty(maxP)-8).toFixed(1)}" text-anchor="middle" font-size="10" fill="#22c55e" font-weight="700">+${r1(maxP)}</text>
+<text x="${(PL-3).toFixed(1)}" y="${(ty(maxP)+4).toFixed(1)}" text-anchor="end" font-size="8" fill="#22c55e">+${r1(maxP)}</text>
+<text x="${(PL-3).toFixed(1)}" y="${(ty(0)+4).toFixed(1)}" text-anchor="end" font-size="8" fill="#666">0</text>
+<text x="${(PL-3).toFixed(1)}" y="${(ty(minP)+4).toFixed(1)}" text-anchor="end" font-size="8" fill="#ef4444">${r1(minP)}</text>
+<text x="${tx(lK).toFixed(1)}" y="${(H-PB+14).toFixed(1)}" text-anchor="middle" font-size="8" fill="#555">${fmt(lK)}</text>
+<text x="${midX}" y="${(H-PB+14).toFixed(1)}" text-anchor="middle" font-size="8" fill="#60a5fa">${fmt(mK)}★</text>
+<text x="${tx(rK).toFixed(1)}" y="${(H-PB+14).toFixed(1)}" text-anchor="middle" font-size="8" fill="#555">${fmt(rK)}</text>
+</svg>`;
+}
+
+function rPos(){
+  const pa=ST.pendingAdd;
+  const posRows=ST.positions.map(p=>{
+    const cBF=p.type==='C'?cbf(p.K,p.gap):pbf(p.K,p.gap);
+    const cFLP=p.type==='C'?getCallLTP(p.K):getPutLTP(p.K);
+    const hp=vp(p.dbt,cFLP),pnlPt=r1((cBF-p.dbt)*p.lots),pnlRs=Math.round(pnlPt*ST.lotSize);
+    const m=mn(p.K,p.type),hst=hp>25?'fail':hp>20?'warn':'pass';
+    let sig='';
+    if(m==='ITM'&&hp>15)sig=`<span class="fail">Exit-ITM</span>`;
+    else if(hp>25)sig=`<span class="fail">Exit-breach</span>`;
+    else if(hp>20)sig=`<span class="warn">Review</span>`;
+    else if(pnlPt>p.dbt*p.lots*.75)sig=`<span class="pass">Book profit</span>`;
+    else sig=`<span class="pass">Hold</span>`;
+    return`<tr ${ST.selPosId===p.id?'class="hl"':''}>
+<td><b>${fmt(p.K)}</b></td><td>${p.type}</td>
+<td><span class="tag ${mc(m)}">${m}</span></td>
+<td>${p.gap}</td><td>${p.combo}</td><td>${p.expiry}</td><td>${p.lots}</td>
+<td>${p.dbt}</td><td>${p.flp}</td><td><b>${cBF}</b></td><td>${r1(cFLP)}</td>
+<td class="${hst}">${hp.toFixed(1)}%</td>
+<td style="color:${pnlRs>=0?'var(--suc)':'var(--dng)'};font-weight:600">${pnlRs>=0?'+':''}₹${Math.abs(pnlRs).toLocaleString('en-IN')}</td>
+<td>${sig}</td>
+<td><button class="btn btn-s" style="padding:1px 6px;font-size:10px" onclick="ST.selPosId=${p.id};rPos()">📊</button></td>
+<td><button class="btn" style="padding:1px 6px;font-size:10px;background:var(--bgd);color:var(--dng);border:1px solid var(--bd)" onclick="delPos(${p.id})">✕</button></td>
+</tr>`;
+  }).join('');
+  const totPnl=ST.positions.reduce((acc,p)=>{const cBF=p.type==='C'?cbf(p.K,p.gap):pbf(p.K,p.gap);return acc+r1((cBF-p.dbt)*p.lots)*ST.lotSize;},0);
+  const selP=ST.selPosId?ST.positions.find(p=>p.id===ST.selPosId):ST.positions[0];
+  document.getElementById('p-pos').innerHTML=`
+<div class="posform">
+${pa?`<div class="tag tw" style="display:inline-block;margin-bottom:8px">⚡ Pre-filled — ${pa.type==='C'?'Call':'Put'} BF · K=${fmt(pa.K)} · Gap=${pa.gap} · BF=₹${pa.dbt}</div>`:''}
+<div class="st" style="margin-top:0">Add position</div>
+<div class="fr">
+  <div class="fg"><label>Type</label><select id="af-tp"><option value="C" ${pa?.type==='C'?'selected':''}>Call BF</option><option value="P" ${pa?.type==='P'?'selected':''}>Put BF</option></select></div>
+  <div class="fg"><label>Strike K</label><input id="af-K" type="number" value="${pa?pa.K:Math.round(ST.aSpot/50)*50}" step="50"></div>
+  <div class="fg"><label>Gap (pts)</label><input id="af-g" type="number" value="${pa?pa.gap:ST.recGap}" step="50"></div>
+  <div class="fg"><label>Combo</label><select id="af-cb">
+    <option value="1:2">1:2</option><option value="2:3" ${ST.aCombo.l==='2:3'?'selected':''}>2:3</option><option value="3:4" ${ST.aCombo.l==='3:4'?'selected':''}>3:4</option></select></div>
+  <div class="fg"><label>Buy lots</label><input id="af-l" type="number" value="2" min="1"></div>
+  <div class="fg"><label>Entry debit/lot (₹)</label><input id="af-d" type="number" value="${pa?pa.dbt:''}" step=".5" placeholder="e.g. 14.0"></div>
+  <div class="fg"><label>Entry FLP (₹)</label><input id="af-f" type="number" value="${pa?pa.flp:''}" step=".5" placeholder="e.g. 110.0"></div>
+  <div class="fg"><label>Expiry label</label><input id="af-ex" type="text" value="${FD.expiries[FD.selExp]||'Weekly'}"></div>
+</div>
+<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+  <button class="btn btn-p" onclick="addPos()">+ Add to tracker</button>
+  <span style="font-size:11px;color:var(--t2)">Lot size:
+    <input type="number" value="${ST.lotSize}" style="width:55px;padding:3px 5px;background:var(--s2);border:1px solid var(--b);border-radius:4px;color:var(--t);font-size:11px" oninput="ST.lotSize=+this.value;rPos()">
+  </span>
+</div>
+</div>
+<div class="st">Open positions ${ST.positions.length?`(${ST.positions.length})`:''}</div>
+${ST.positions.length===0
+?`<div class="ib">No positions yet. Use the <b>Exit Tool</b> tab — click <b>+Add</b> in any gap cell to add a trade here.</div>`
+:`<div class="scrollx">
+<table class="tbl"><thead><tr><th>K</th><th>T</th><th>Pos</th><th>Gap</th><th>Combo</th><th>Expiry</th><th>Lots</th><th>Entry₹</th><th>FLP₀</th><th>Cur BF</th><th>FLP now</th><th>Hold%</th><th>P&L</th><th>Signal</th><th>📊</th><th>✕</th></tr></thead>
+<tbody>${posRows}</tbody></table></div>
+<div class="st">Portfolio</div>
+<div class="cards">
+  <div class="card ${totPnl>=0?'green':'red'}"><div class="cl">Total P&L</div>
+    <div class="cv" style="font-size:15px">${totPnl>=0?'+':''}₹${Math.abs(Math.round(totPnl)).toLocaleString('en-IN')}</div>
+    <div class="cs">${ST.positions.length} position${ST.positions.length!==1?'s':''}</div></div>
+  <div class="card"><div class="cl">Lot size</div><div class="cv">${ST.lotSize}</div><div class="cs">₹ per point per lot</div></div>
+</div>
+${selP?`<div class="st">Payoff — click 📊 to change</div>${payoffSVG(selP.K,selP.gap,selP.dbt,selP.type)}
+<div style="font-size:11px;color:var(--t2);margin-top:5px">
+Max profit: <b class="pass">+${r1(selP.gap-selP.dbt)} pts = +₹${Math.round(r1(selP.gap-selP.dbt)*selP.lots*ST.lotSize).toLocaleString('en-IN')}</b> at ${fmt(selP.type==='C'?selP.K+selP.gap:selP.K-selP.gap)}
+&nbsp;·&nbsp; Max loss: <b class="fail">−${r1(selP.dbt)} pts = −₹${Math.round(selP.dbt*selP.lots*ST.lotSize).toLocaleString('en-IN')}</b>
+</div>`:''}
+`}`;
+  ST.pendingAdd=null;
+}
+function addPos(){
+  const K=+document.getElementById('af-K').value,dbt=+document.getElementById('af-d').value,flp=+document.getElementById('af-f').value;
+  if(!K||!dbt||!flp){alert('Fill Strike, Entry Debit, and Entry FLP.');return;}
+  const pos={id:ST.nextId++,type:document.getElementById('af-tp').value,K,gap:+document.getElementById('af-g').value,
+    combo:document.getElementById('af-cb').value,lots:+document.getElementById('af-l').value||1,dbt,flp,expiry:document.getElementById('af-ex').value||'Weekly'};
+  ST.positions.push(pos);if(!ST.selPosId)ST.selPosId=pos.id;rPos();
+}
+function delPos(id){ST.positions=ST.positions.filter(p=>p.id!==id);if(ST.selPosId===id)ST.selPosId=ST.positions[0]?.id||null;rPos();}
+
+// ════════════════════════════════════════════════════════════════════
+// 12. RISK
+// ════════════════════════════════════════════════════════════════════
+function rRsk(){
+  document.getElementById('p-rsk').innerHTML=`<div id="rsk-out"></div>
+<div class="div"></div>
+<div class="st">Configure limits</div>
+<div class="fr">
+  <div class="fg"><label>Daily loss limit (₹)</label><input type="number" value="${ST.rsk.dlim}" step="1000" oninput="ST.rsk.dlim=+this.value;rRskOut()"></div>
+  <div class="fg"><label>Weekly loss limit (₹)</label><input type="number" value="${ST.rsk.wlim}" step="1000" oninput="ST.rsk.wlim=+this.value;rRskOut()"></div>
+  <div class="fg"><label>Max delta (abs)</label><input type="number" value="${ST.rsk.mdt}" oninput="ST.rsk.mdt=+this.value;rRskOut()"></div>
+  <div class="fg"><label>Max vega (abs)</label><input type="number" value="${ST.rsk.mvg}" oninput="ST.rsk.mvg=+this.value;rRskOut()"></div>
+</div>
+<div class="st">Update current values</div>
+<div class="fr">
+  <div class="fg"><label>Daily P&L (₹)</label><input type="number" value="${ST.rsk.dpnl}" step="100" oninput="ST.rsk.dpnl=+this.value;rRskOut()"></div>
+  <div class="fg"><label>Weekly P&L (₹)</label><input type="number" value="${ST.rsk.wpnl}" step="100" oninput="ST.rsk.wpnl=+this.value;rRskOut()"></div>
+  <div class="fg"><label>Net delta</label><input type="number" value="${ST.rsk.dlta}" oninput="ST.rsk.dlta=+this.value;rRskOut()"></div>
+  <div class="fg"><label>Net vega</label><input type="number" value="${ST.rsk.vga}" oninput="ST.rsk.vga=+this.value;rRskOut()"></div>
+</div>`;
+  rRskOut();
+}
+function rRskOut(){
+  const r=ST.rsk,el=document.getElementById('rsk-out');if(!el)return;
+  function pp(v,lim){return v<0?Math.min(100,Math.abs(v)/Math.abs(lim)*100):0;}
+  function gp(v,mx){return Math.min(100,Math.abs(v)/mx*100);}
+  function gc(p){return p>80?'r':p>50?'a':'g';}
+  function gRow(lbl,fill,val,note){
+    const cl=gc(fill);const vc=cl==='g'?'var(--suc)':cl==='a'?'var(--wrn)':'var(--dng)';
+    return`<div class="grw"><div class="grl">${lbl}</div><div class="grt"><div class="grf ${cl}" style="width:${fill.toFixed(0)}%"></div></div><div class="grv" style="color:${vc}">${val}</div></div><div class="gnote">${note} · <b>${fill.toFixed(0)}% used</b></div>`;
+  }
+  const dp=pp(r.dpnl,r.dlim),wp=pp(r.wpnl,r.wlim),dtp=gp(r.dlta,r.mdt),vgp=gp(r.vga,r.mvg);
+  el.innerHTML=`<div class="st" style="margin-top:0">P&L limits</div>
+${gRow('Daily P&L',dp,(r.dpnl>=0?'+':'')+'₹'+Math.abs(r.dpnl).toLocaleString('en-IN'),`Limit ₹${Math.abs(r.dlim).toLocaleString('en-IN')}${r.dpnl>=0?' (in profit)':''}`)}
+${gRow('Weekly P&L',wp,(r.wpnl>=0?'+':'')+'₹'+Math.abs(r.wpnl).toLocaleString('en-IN'),`Limit ₹${Math.abs(r.wlim).toLocaleString('en-IN')}${r.wpnl>=0?' (in profit)':''}`)}
+<div class="st">Greeks</div>
+${gRow('Net delta',dtp,(r.dlta>=0?'+':'')+r.dlta,`Max ±${r.mdt} — auto-controlled by butterfly structure`)}
+${gRow('Net vega',vgp,r.vga,`Max abs ${r.mvg} — VIX rise hurts short-term, creates scaling opportunity`)}
+<div class="cards" style="margin-top:10px">
+  <div class="card ${dp>80?'red':dp>50?'amber':'green'}"><div class="cl">Daily status</div><div class="cv" style="font-size:14px">${dp>80?'⚠ Critical':dp>50?'⚡ Warning':'✓ Safe'}</div></div>
+  <div class="card ${vgp>80?'red':vgp>50?'amber':'green'}"><div class="cl">Vega status</div><div class="cv" style="font-size:14px">${vgp>80?'⚠ High':vgp>50?'⚡ Limit':'✓ OK'}</div></div>
+  <div class="card ${FD.connected?'green':'amber'}"><div class="cl">Data</div><div class="cv" style="font-size:13px">${FD.connected?'● Live':'◉ Demo'}</div></div>
+  <div class="card"><div class="cl">VIX</div><div class="cv">${ST.aVix.toFixed?ST.aVix.toFixed(2):ST.aVix}</div><div class="cs">${ST.aVix>16?'Scale zone':ST.aVix<10?'Very low':'Normal'}</div></div>
+</div>`;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 13. TABS + CLOCK + INIT
+// ════════════════════════════════════════════════════════════════════
+const rfns={exit:rExit,conn:rConn,cal:rCal,csim:rCsim,pos:rPos,rsk:rRsk};
+let curTab='exit';
+
+function doTab(id,btn){
+  document.querySelectorAll('.pnl').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('p-'+id).classList.add('on');
+  btn.classList.add('active');
+  curTab=id;rfns[id]();
+}
+function renderCur(){if(rfns[curTab])rfns[curTab]();}
+
+function tick(){
+  const i=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));
+  const p=x=>String(x).padStart(2,'0');
+  document.getElementById('h-cl').textContent=`${p(i.getHours())}:${p(i.getMinutes())}:${p(i.getSeconds())} IST`;
+}
+setInterval(tick,1000);tick();
+rHdr();rExit();
+</script>
+</body>
+</html>
