@@ -3,470 +3,1258 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>NIFTY Exit Tool</title>
+<title>NIFTY Options Dashboard — Fyers Live</title>
 <style>
 :root{
-  --bg:#09090d;--s0:#0e0e15;--s1:#13131d;--s2:#1b1b28;--s3:#222230;
-  --b:#28283c;--t:#dde0f0;--t2:#5e6090;--t3:#35354f;
+  --bg:#0d0d0d;--s0:#111;--s1:#1a1a1a;--s2:#222;--s3:#2a2a2a;
+  --b:#2e2e2e;--ba:#1e3a8a;--bs:#14532d;--bw:#78350f;--bd:#7f1d1d;
+  --t:#e8e8e8;--t2:#888;--t3:#555;
   --acc:#3b82f6;--suc:#22c55e;--wrn:#f59e0b;--dng:#ef4444;
+  --bga:rgba(59,130,246,.13);--bgs:rgba(34,197,94,.11);
+  --bgw:rgba(245,158,11,.11);--bgd:rgba(239,68,68,.11);
+  --f:system-ui,-apple-system,'Segoe UI',sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%}
-body{background:var(--bg);color:var(--t);font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:13px;display:flex;flex-direction:column;overflow:hidden}
-
-/* HEADER */
-#hbar{flex-shrink:0;display:flex;align-items:center;gap:5px;padding:6px 12px;background:var(--s1);border-bottom:1px solid var(--b);flex-wrap:wrap}
-.hm{display:flex;flex-direction:column;padding:2px 7px;border:1px solid var(--b);border-radius:4px;min-width:66px}
-.hl{font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.05em}
-.hv{font-size:12px;font-weight:500;line-height:1.5}
-.bdg{padding:2px 9px;border-radius:20px;font-size:10px;font-weight:600}
-.live{background:rgba(34,197,94,.12);color:#22c55e;border:1px solid #14532d}
-.demo{background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid #78350f}
-.err{background:rgba(239,68,68,.11);color:#ef4444;border:1px solid #7f1d1d}
-
-/* CONTROLS */
-#ctrl{flex-shrink:0;display:flex;align-items:flex-end;gap:6px;padding:6px 12px;background:var(--s0);border-bottom:1px solid var(--b);flex-wrap:wrap}
-.cg{display:flex;flex-direction:column;gap:2px}
-.cg label{font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.04em;font-weight:500}
-.cg input,.cg select{background:var(--s2);border:1px solid var(--b);border-radius:4px;padding:4px 7px;font-size:11px;color:var(--t);font-family:inherit}
-.cg input:focus,.cg select:focus{outline:none;border-color:var(--acc)}
-.btn{border:none;border-radius:5px;padding:5px 12px;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;transition:opacity .15s}
-.btn:hover:not(:disabled){opacity:.85}.btn:disabled{opacity:.35;cursor:not-allowed}
+body{background:var(--bg);color:var(--t);font-family:var(--f);font-size:13px}
+a{color:var(--acc)}
+/* ── HEADER ── */
+#hbar{display:flex;align-items:center;gap:6px;padding:8px 14px;
+  background:var(--s1);border-bottom:1px solid var(--b);flex-wrap:wrap;position:sticky;top:0;z-index:10}
+/* ── Header Connect button + OAuth popover (mirrors the FyersAuth popup mechanism) ── */
+#hc-wrap{position:relative;order:99;}
+.hc-btn{display:flex;align-items:center;gap:6px;padding:6px 13px;border-radius:6px;font-size:12px;font-weight:600;
+  border:1px solid var(--b);cursor:pointer;transition:filter .12s;white-space:nowrap;}
+.hc-btn:hover{filter:brightness(1.12);}
+.hc-btn:disabled{cursor:default;opacity:.75;}
+.hc-btn.off{background:var(--acc);color:#fff;border-color:var(--acc);}
+.hc-btn.on{background:var(--bgs);color:var(--suc);border-color:var(--bs);}
+.hc-btn .spin{width:11px;height:11px;border-width:2px;}
+.hc-pop{position:absolute;right:0;top:calc(100% + 8px);width:300px;background:var(--s1);border:1px solid var(--b);
+  border-radius:9px;box-shadow:0 10px 32px rgba(0,0,0,.45);padding:14px;z-index:50;}
+.hc-pop-title{font-size:13px;font-weight:600;color:var(--t);margin-bottom:2px;display:flex;align-items:center;gap:7px;}
+.hc-pop-sub{font-size:11px;color:var(--t2);margin-bottom:10px;line-height:1.5;}
+.hc-pop label{display:block;font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.04em;margin:9px 0 4px;}
+.hc-pop input{width:100%;box-sizing:border-box;padding:7px 9px;border-radius:5px;border:1px solid var(--b);
+  background:var(--s0);color:var(--t);font-family:inherit;font-size:12px;}
+.hc-pop input:disabled{opacity:.6;}
+.hc-hint{font-size:10px;color:var(--t2);margin-top:4px;line-height:1.5;}
+.hc-hint code{background:var(--s0);border:1px solid var(--b);border-radius:3px;padding:1px 4px;font-size:10px;}
+.hc-go{width:100%;margin-top:13px;padding:9px;border-radius:6px;border:none;background:var(--acc);color:#fff;
+  font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;}
+.hc-go:disabled{opacity:.55;cursor:default;}
+.hc-connected{padding:2px 0;}
+.hc-connected .hc-row{font-size:11px;color:var(--t2);margin-bottom:10px;}
+.hc-dc{width:100%;padding:8px;border-radius:6px;border:1px solid var(--b);background:transparent;color:var(--t);
+  font-size:12px;cursor:pointer;}
+.hc-dc:hover{border-color:var(--dng);color:var(--dng);}
+.hc-pulse{font-size:10px;color:var(--acc);margin-top:8px;text-align:center;}
+/* ── Toasts (mirrors sonner toast.success/toast.error from the auth flow) ── */
+#hc-toasts{position:fixed;top:56px;right:14px;z-index:100;display:flex;flex-direction:column;gap:7px;align-items:flex-end;}
+.hc-toast{padding:8px 13px;border-radius:6px;font-size:12px;font-weight:500;box-shadow:0 6px 18px rgba(0,0,0,.4);
+  animation:hcIn .15s ease-out;max-width:300px;}
+.hc-toast.suc{background:var(--bgs);color:var(--suc);border:1px solid var(--bs);}
+.hc-toast.err{background:#3a1414;color:#ff8080;border:1px solid #6a2323;}
+@keyframes hcIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
+.hm{display:flex;flex-direction:column;padding:3px 8px;border:1px solid var(--b);border-radius:5px;min-width:72px}
+.hm .hl{font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.05em}
+.hm .hv{font-size:13px;font-weight:500}
+.badge{padding:2px 9px;border-radius:20px;font-size:10px;font-weight:600}
+.live{background:var(--bgs);color:var(--suc);border:1px solid var(--bs)}
+.demo{background:var(--bgw);color:var(--wrn);border:1px solid var(--bw)}
+.err{background:var(--bgd);color:var(--dng);border:1px solid var(--bd)}
+.rb-sw{background:var(--bga);color:var(--acc);border:1px solid var(--ba)}
+.rb-hv{background:var(--bgw);color:var(--wrn);border:1px solid var(--bw)}
+/* ── TABS ── */
+#tabs{display:flex;background:var(--s1);border-bottom:1px solid var(--b);overflow-x:auto;position:sticky;top:45px;z-index:9}
+.tab{padding:9px 13px;font-size:11px;font-weight:500;border:none;background:none;
+  color:var(--t2);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;font-family:var(--f)}
+.tab.active{color:var(--acc);border-bottom-color:var(--acc)}
+.tab:hover:not(.active){color:var(--t)}
+/* ── PANELS ── */
+.pnl{display:none;padding:14px 14px 30px;max-width:1200px;margin:0 auto}
+.pnl.on{display:block}
+/* ── SECTION TITLES ── */
+.st{font-size:10px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.05em;
+  margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--b)}
+.st:first-child{margin-top:0}
+/* ── CARDS ── */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:8px}
+.card{background:var(--s1);border:1px solid var(--b);border-radius:8px;padding:10px 12px}
+.cl{font-size:10px;color:var(--t2);margin-bottom:3px}
+.cv{font-size:18px;font-weight:500}
+.cs{font-size:10px;color:var(--t3);margin-top:2px}
+.card.blue{border-color:var(--ba);background:var(--bga)}.card.blue .cv{color:var(--acc)}
+.card.green{border-color:var(--bs);background:var(--bgs)}.card.green .cv{color:var(--suc)}
+.card.amber{border-color:var(--bw);background:var(--bgw)}.card.amber .cv{color:var(--wrn)}
+.card.red{border-color:var(--bd);background:var(--bgd)}.card.red .cv{color:var(--dng)}
+/* ── FORMS ── */
+.fr{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:10px}
+.fg{display:flex;flex-direction:column;gap:3px}
+.fg label{font-size:10px;color:var(--t2);font-weight:500}
+.fg input,.fg select{background:var(--s2);border:1px solid var(--b);border-radius:5px;
+  padding:6px 8px;font-size:12px;color:var(--t);font-family:var(--f);width:100%}
+.fg input:focus,.fg select:focus{outline:none;border-color:var(--acc)}
+/* ── BUTTONS ── */
+.btn{border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-weight:500;
+  cursor:pointer;font-family:var(--f);transition:opacity .15s}
+.btn:hover{opacity:.85}.btn:disabled{opacity:.35;cursor:not-allowed}
 .btn-p{background:var(--acc);color:#fff}
 .btn-s{background:var(--s2);color:var(--t);border:1px solid var(--b)}
-.vsep{width:1px;height:26px;background:var(--b);align-self:flex-end;margin:0 2px}
-
-/* FILTER BAR */
-#fbar{flex-shrink:0;display:flex;align-items:center;gap:7px;padding:5px 12px;background:var(--s1);border-bottom:1px solid var(--b);flex-wrap:wrap;font-size:10px;color:var(--t2)}
-.fb{padding:2px 9px;border-radius:3px;font-size:10px;font-weight:500;cursor:pointer;font-family:inherit;border:1px solid var(--b);background:var(--s2);color:var(--t2);transition:all .1s}
-.fb.on{background:rgba(59,130,246,.14);color:#60a5fa;border-color:#1e3a8a}
-.ld{width:8px;height:8px;border-radius:2px;display:inline-block;vertical-align:middle;margin-right:3px}
-
-/* TABLE WRAPPER */
-#tw{flex:1;overflow:auto;position:relative}
-
-/* THE CHAIN TABLE */
-.ct{border-collapse:collapse;width:100%;min-width:880px;font-size:12px}
-
-/* STICKY HEADER ROWS */
-.ct thead tr.r1 th{position:sticky;top:0;z-index:20;background:var(--s0)}
-.ct thead tr.r2 th{position:sticky;top:28px;z-index:19;background:var(--s0)}
-.ct thead tr.r3 th{position:sticky;top:56px;z-index:18;background:var(--s0)}
-
-/* SECTION HEADER (r1) */
-.ct thead tr.r1 th{padding:5px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--b);text-align:center}
-.sh-c{background:rgba(34,197,94,.09)!important;color:#4ade80;border-right:1px solid rgba(34,197,94,.2)}
-.sh-s{background:rgba(251,191,36,.1)!important;color:#fbbf24;border-left:1px solid rgba(251,191,36,.25);border-right:1px solid rgba(251,191,36,.25)}
-.sh-p{background:rgba(239,68,68,.07)!important;color:#f87171;border-left:1px solid rgba(239,68,68,.15)}
-
-/* COLUMN HEADER (r2) */
-.ct thead tr.r2 th{padding:5px 8px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid var(--b);text-align:center;color:var(--t2)}
-.h100c{background:rgba(34,197,94,.15)!important;color:#4ade80!important}
-.h150c{background:rgba(6,182,212,.15)!important;color:#22d3ee!important}
-.h200c{background:rgba(99,102,241,.15)!important;color:#a5b4fc!important}
-.hstk{background:rgba(251,191,36,.12)!important;color:#fbbf24!important;border-left:1px solid rgba(251,191,36,.25)!important;border-right:1px solid rgba(251,191,36,.25)!important}
-.h100p{background:rgba(251,146,60,.15)!important;color:#fb923c!important}
-.h150p{background:rgba(245,158,11,.15)!important;color:#fcd34d!important}
-.h200p{background:rgba(239,68,68,.13)!important;color:#f87171!important}
-
-/* SUB-HEADER (r3) */
-.ct thead tr.r3 th{padding:3px 8px;font-size:9px;color:var(--t3);border-bottom:2px solid var(--b);text-align:center;font-weight:400;letter-spacing:.03em}
-.r3 .hstk{border-left:1px solid rgba(251,191,36,.25)!important;border-right:1px solid rgba(251,191,36,.25)!important}
-
-/* BODY */
-.ct tbody tr:hover td{background:var(--s3)!important}
-
-/* ATM ROW */
-.ct tbody tr.atm .std{background:rgba(251,191,36,.82)!important;color:#060606!important;font-weight:700}
-.ct tbody tr.atm td:not(.std){background:rgba(251,191,36,.04)}
-
-/* FLP CELLS */
-.ct tbody td.flp{
-  background:var(--s1);font-size:13px;font-weight:600;color:var(--t);
-  padding:9px 11px;text-align:right;border-bottom:1px solid rgba(40,40,60,.9);
-  min-width:72px;border-right:1px solid var(--b)
-}
-.ct tbody td.flp.r{border-right:none;border-left:1px solid var(--b);text-align:left}
-
-/* STRIKE CELL */
-.ct tbody td.std{
-  background:var(--s1);font-size:13px;font-weight:600;color:var(--t);
-  padding:9px 10px;text-align:center;min-width:90px;
-  border-left:1px solid rgba(251,191,36,.2);border-right:1px solid rgba(251,191,36,.2);
-  border-bottom:1px solid rgba(40,40,60,.9)
-}
-.atm-lbl{display:block;font-size:8px;font-weight:700;color:#fbbf24;margin-top:1px;letter-spacing:.08em}
-
-/* GAP CELLS */
-.ct tbody td.gc{padding:8px 10px;min-width:96px;border-bottom:1px solid rgba(40,40,60,.9);text-align:center;vertical-align:middle}
-.gc100c{background:rgba(34,197,94,.055)}
-.gc150c{background:rgba(6,182,212,.055)}
-.gc200c{background:rgba(99,102,241,.055)}
-.gc100p{background:rgba(251,146,60,.055)}
-.gc150p{background:rgba(245,158,11,.05)}
-.gc200p{background:rgba(239,68,68,.045)}
-
-/* Fail dim */
-.fd{opacity:.38}
-
-/* BF rate & Val% */
-.bfn{font-size:15px;font-weight:700;color:var(--t);line-height:1.15}
-.vpn{font-size:10px;font-weight:600;line-height:1.2;margin-top:2px}
-.vi{color:#60a5fa}
-.vp{color:#4ade80}
-.vw{color:#fbbf24}
-.vf{color:#f87171}
-
-/* LEGEND */
-#leg{flex-shrink:0;display:flex;gap:12px;align-items:center;padding:5px 12px;background:var(--s0);border-top:1px solid var(--b);flex-wrap:wrap;font-size:10px;color:var(--t2)}
-
-/* MISC */
+.btn-g{background:var(--bgs);color:var(--suc);border:1px solid var(--bs);padding:2px 8px;font-size:10px}
+.btn-r{background:var(--bgd);color:var(--dng);border:1px solid var(--bd);padding:2px 8px;font-size:10px}
+.btn-b{background:var(--bga);color:var(--acc);border:1px solid var(--ba);padding:2px 7px;font-size:10px}
+/* ── TABLE ── */
+.scrollx{overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse;font-size:11px}
+.tbl th{background:var(--s0);color:var(--t2);font-weight:500;padding:5px 7px;text-align:left;
+  border-bottom:1px solid var(--b);font-size:10px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+.tbl td{padding:6px 7px;border-bottom:1px solid var(--b);vertical-align:middle}
+.tbl tr.hl td{background:color-mix(in srgb,var(--acc) 8%,transparent);font-weight:500}
+.tbl tr.dim td{opacity:.45}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:var(--s2)}
+/* ── TAGS ── */
+.tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600}
+.ti{background:var(--bga);color:var(--acc)}
+.tp{background:var(--bgs);color:var(--suc)}
+.tw{background:var(--bgw);color:var(--wrn)}
+.tf{background:var(--bgd);color:var(--dng)}
+.tm{background:var(--bgs);color:var(--suc)}
+.ta{background:var(--bgw);color:var(--wrn)}
+.to{background:var(--bga);color:var(--acc)}
+.pass{color:var(--suc);font-weight:600}
+.warn{color:var(--wrn);font-weight:600}
+.fail{color:var(--dng);font-weight:600}
+.ideal{color:var(--acc);font-weight:600}
+/* ── INFO BOX ── */
+.ib{background:var(--s0);border:1px solid var(--b);border-left:3px solid var(--acc);
+  border-radius:5px;padding:9px 11px;font-size:11px;color:var(--t2);margin-top:10px;line-height:1.7}
+.ib b,.ib strong{color:var(--t)}
+.ib.suc{border-left-color:var(--suc)}
+.ib.warn{border-left-color:var(--wrn)}
+/* ── GAUGES ── */
+.grw{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.grl{font-size:11px;color:var(--t2);width:86px;flex-shrink:0}
+.grt{flex:1;height:6px;background:var(--s0);border-radius:3px;overflow:hidden}
+.grf{height:100%;border-radius:3px;transition:width .3s}
+.grf.g{background:var(--suc)}.grf.a{background:var(--wrn)}.grf.r{background:var(--dng)}
+.grv{font-size:12px;font-weight:500;width:80px;text-align:right}
+.gnote{font-size:10px;color:var(--t3);padding-left:94px;margin-bottom:9px}
+/* ── MISC ── */
+.div{height:1px;background:var(--b);margin:12px 0}
+.rbox{background:var(--s1);border:1px solid var(--ba);border-radius:8px;padding:12px}
+.rd{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.ri .ril{font-size:10px;color:var(--t2)}
+.ri .riv{font-size:12px;font-weight:500;margin-top:1px}
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sc{background:var(--s1);border:1px solid var(--b);border-radius:7px;padding:10px}
+.sc.act{border-color:var(--acc);background:var(--bga)}
+.scn{font-size:9px;color:var(--t2);font-weight:600;text-transform:uppercase;margin-bottom:3px}
+.sct{font-size:12px;font-weight:500;margin-bottom:4px}
+.sca{font-size:10px;color:var(--t2);line-height:1.5}
+.scv{font-size:10px;color:var(--acc);margin-top:4px;font-style:italic}
+.posform{background:var(--s1);border:1px solid var(--ba);border-radius:8px;padding:12px;margin-bottom:10px}
+.oibar{height:4px;background:var(--s3);border-radius:2px;overflow:hidden;width:50px;display:inline-block;vertical-align:middle}
+.oic{height:100%;background:var(--suc);border-radius:2px}
+.oip{height:100%;background:var(--dng);border-radius:2px}
+.paysvg{width:100%;border:1px solid var(--b);border-radius:6px;background:var(--s0);display:block;margin-top:8px}
+code{background:var(--s2);padding:1px 5px;border-radius:3px;font-size:11px;font-family:monospace}
 @keyframes spin{to{transform:rotate(360deg)}}
-.sp{display:inline-block;width:10px;height:10px;border:2px solid var(--b);border-top-color:var(--acc);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:3px}
-code{background:var(--s2);padding:1px 5px;border-radius:3px;font-size:10px;font-family:monospace;color:var(--t2)}
-a{color:var(--acc);text-decoration:none}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--b);border-top-color:var(--acc);
+  border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:4px}
 </style>
 </head>
 <body>
-
-<!-- HEADER -->
+<!-- ─── HEADER ─────────────────────────────────────────────────── -->
 <div id="hbar">
   <div class="hm"><span class="hl">NIFTY 50</span><span class="hv" id="h-sp">–</span></div>
   <div class="hm"><span class="hl">India VIX</span><span class="hv" id="h-vx">–</span></div>
   <div class="hm"><span class="hl">ATM Straddle</span><span class="hv" id="h-st">–</span></div>
-  <div class="hm"><span class="hl">ATM Strike</span><span class="hv" id="h-atm">–</span></div>
+  <div class="hm"><span class="hl">Nxt Wk Strd</span><span class="hv" id="h-snw">–</span></div>
+  <div class="hm"><span class="hl">Monthly Strd</span><span class="hv" id="h-sm">–</span></div>
   <div class="hm"><span class="hl">PCR</span><span class="hv" id="h-pcr">–</span></div>
   <div class="hm"><span class="hl">Max Pain</span><span class="hv" id="h-mp">–</span></div>
-  <div class="hm"><span class="hl">Rec. Gap ★</span><span class="hv" id="h-gap">– pts</span></div>
-  <span class="bdg demo" id="h-mode">◉ DEMO</span>
+  <div class="hm"><span class="hl">Gap / Combo</span><span class="hv" id="h-gc">–</span></div>
+  <span class="badge rb-sw" id="h-reg">–</span>
+  <span class="badge demo" id="h-mode">◉ DEMO</span>
   <div class="hm" style="margin-left:auto"><span class="hl">IST</span><span class="hv" id="h-cl" style="font-size:11px">--:--:--</span></div>
+  <div id="hc-wrap"></div>
 </div>
-
-<!-- CONTROLS -->
-<div id="ctrl">
-  <div class="cg"><label>Client ID</label><input id="ci-id" type="text" placeholder="XC12345-100" style="width:108px"></div>
-  <div class="cg"><label>Access Token (daily)</label><input id="ci-tok" type="password" placeholder="Paste access token" style="width:150px"></div>
-  <div class="cg"><label>Proxy URL (CORS fix)</label><input id="ci-px" type="text" placeholder="http://localhost:8080/..." style="width:162px"></div>
-  <div class="cg"><label>Expiry</label><select id="ci-exp" style="width:110px"><option>Connect first</option></select></div>
-  <button class="btn btn-p" onclick="doConnect()" style="align-self:flex-end">Connect &amp; Fetch</button>
-  <button class="btn btn-s" id="btn-ref" onclick="doRefresh()" disabled style="align-self:flex-end">↻ Refresh</button>
-  <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--t2);cursor:pointer;align-self:flex-end;padding-bottom:3px">
-    <input type="checkbox" id="auto-cb" onchange="toggleAuto(this.checked)"> Auto 30s
-  </label>
-  <div class="vsep"></div>
-  <div class="cg"><label>Spot</label><input id="m-sp" type="number" value="24500" step="50" style="width:80px" oninput="ST.spot=+this.value;go()"></div>
-  <div class="cg"><label>ATM Straddle</label><input id="m-st" type="number" value="220" step="5" style="width:76px" oninput="ST.sw=+this.value;go()"></div>
-  <div class="cg"><label>VIX</label><input id="m-vx" type="number" value="13.5" step=".1" style="width:58px" oninput="ST.vix=+this.value;rHdr()"></div>
-  <div class="cg"><label>DTE (days)</label><input id="m-dte" type="number" value="4" min="1" max="25" style="width:58px" oninput="ST.dte=+this.value;go()"></div>
-  <div class="cg"><label>Rows ± ATM</label><input type="number" value="16" min="4" max="30" style="width:58px" oninput="ST.range=+this.value;go()"></div>
+<div id="hc-toasts"></div>
+<!-- ─── TABS ──────────────────────────────────────────────────── -->
+<div id="tabs">
+  <button class="tab active" onclick="doTab('exit',this)">Exit Tool</button>
+  <button class="tab" onclick="doTab('csim',this)">Chain Sim</button>
+  <button class="tab" onclick="doTab('pos',this)">Positions</button>
+  <button class="tab" onclick="doTab('rsk',this)">Risk</button>
 </div>
-
-<!-- FILTER BAR -->
-<div id="fbar">
-  Show:
-  <button class="fb on" id="fb-all" onclick="sf('all')">All strikes</button>
-  <button class="fb" id="fb-pass" onclick="sf('pass')">Any gap ≤ 20% (Pass)</button>
-  <button class="fb" id="fb-ideal" onclick="sf('ideal')">Any gap ≤ 12% (Ideal)</button>
-  Rows shown: <b id="sc">–</b>
-  <span style="margin-left:auto">
-    <span class="ld" style="background:#60a5fa"></span>≤12% Ideal &nbsp;
-    <span class="ld" style="background:#4ade80"></span>≤20% Pass &nbsp;
-    <span class="ld" style="background:#fbbf24"></span>20–25% Border &nbsp;
-    <span class="ld" style="background:#f87171"></span>&gt;25% Fail (dimmed) &nbsp;&nbsp;
-    <span style="color:var(--t3)">★ = recommended gap (straddle ÷ 2)</span>
-  </span>
-</div>
-
-<!-- CHAIN TABLE -->
-<div id="tw">
-<table class="ct">
-<thead>
-  <!-- Row 1: section labels -->
-  <tr class="r1">
-    <th colspan="4" class="sh-c">← CALL BUTTERFLIES &nbsp;·&nbsp; Buy K · Sell 2×(K+gap) · Buy K+2×gap</th>
-    <th class="sh-s">STRIKE</th>
-    <th colspan="4" class="sh-p">PUT BUTTERFLIES → &nbsp;·&nbsp; Buy K · Sell 2×(K−gap) · Buy K−2×gap</th>
-  </tr>
-  <!-- Row 2: column labels -->
-  <tr class="r2">
-    <th style="min-width:72px;border-right:1px solid var(--b)">C FLP</th>
-    <th class="h100c" id="hc1" style="min-width:96px">100 GAP</th>
-    <th class="h150c" id="hc2" style="min-width:96px">150 GAP</th>
-    <th class="h200c" id="hc3" style="min-width:96px">200 GAP</th>
-    <th class="hstk" style="min-width:90px">K</th>
-    <th class="h100p" id="hp1" style="min-width:96px">100 GAP</th>
-    <th class="h150p" id="hp2" style="min-width:96px">150 GAP</th>
-    <th class="h200p" id="hp3" style="min-width:96px">200 GAP</th>
-    <th style="min-width:72px;border-left:1px solid var(--b)">P FLP</th>
-  </tr>
-  <!-- Row 3: sub-labels -->
-  <tr class="r3">
-    <th style="color:var(--t3);border-right:1px solid var(--b)">Call LTP at K</th>
-    <th>BF Rate &nbsp;·&nbsp; Val%</th>
-    <th>BF Rate &nbsp;·&nbsp; Val%</th>
-    <th>BF Rate &nbsp;·&nbsp; Val%</th>
-    <th class="hstk" style="color:var(--t3);font-size:9px">Strike</th>
-    <th>BF Rate &nbsp;·&nbsp; Val%</th>
-    <th>BF Rate &nbsp;·&nbsp; Val%</th>
-    <th>BF Rate &nbsp;·&nbsp; Val%</th>
-    <th style="color:var(--t3);border-left:1px solid var(--b)">Put LTP at K</th>
-  </tr>
-</thead>
-<tbody id="cb">
-  <tr><td colspan="9" style="text-align:center;padding:60px;color:var(--t2)">
-    Enter Spot and ATM Straddle in the controls above, or connect to Fyers API for live data.
-  </td></tr>
-</tbody>
-</table>
-</div>
-
-<!-- LEGEND -->
-<div id="leg">
-  <b>C/P FLP</b> = First Leg Premium (call/put LTP at strike K)
-  &nbsp;·&nbsp; <b>BF Rate</b> = Butterfly debit = LTP(K) − 2×LTP(K±gap) + LTP(K±2×gap)
-  &nbsp;·&nbsp; <b>Val%</b> = BF Rate ÷ FLP × 100 &nbsp; ≤20% to enter &nbsp; ≤12% ideal
-  <span id="leg-rec" style="color:var(--acc)"></span>
-  <span style="margin-left:auto;color:var(--t3)">CORS fix: <code>npx cors-anywhere</code> → proxy localhost:8080</span>
-</div>
+<!-- ─── PANELS ────────────────────────────────────────────────── -->
+<div id="p-exit" class="pnl on"></div>
+<div id="p-csim" class="pnl"></div>
+<div id="p-pos"  class="pnl"></div>
+<div id="p-rsk"  class="pnl"></div>
 
 <script>
 'use strict';
-
-// ══ MATH ═════════════════════════════════════════════════════════
-function ncdf(x){const t=1/(1+0.2316419*Math.abs(x));const d=0.3989423*Math.exp(-x*x/2);let p=d*t*(0.319382+t*(-0.356564+t*(1.781478+t*(-1.821256+t*1.330274))));return x>0?1-p:p;}
-function bsc(S,K,T,v){if(T<1e-5||v<.005||K<=0)return Math.max(0,S-K);const d1=(Math.log(S/K)+.5*v*v*T)/(v*Math.sqrt(T));return Math.max(.05,S*ncdf(d1)-K*ncdf(d1-v*Math.sqrt(T)));}
-function bsp(S,K,T,v){if(T<1e-5||v<.005||K<=0)return Math.max(0,K-S);const d1=(Math.log(S/K)+.5*v*v*T)/(v*Math.sqrt(T));return Math.max(.05,K*ncdf(v*Math.sqrt(T)-d1)-S*ncdf(-d1));}
-function ivol(sp,st,dte){const T=Math.max(.001,dte/252);return Math.min(3,Math.max(.04,st/(0.7979*sp*Math.sqrt(T))));}
+// ═══════════════════════════════════════════════════════════════════
+// 1. MATH
+// ═══════════════════════════════════════════════════════════════════
+function ncdf(x){
+  const t=1/(1+0.2316419*Math.abs(x));
+  const d=0.3989423*Math.exp(-x*x/2);
+  let p=d*t*(0.319382+t*(-0.356564+t*(1.781478+t*(-1.821256+t*1.330274))));
+  return x>0?1-p:p;
+}
+function bsc(S,K,T,v){
+  if(T<1e-5||v<.005||K<=0)return Math.max(0,S-K);
+  const d1=(Math.log(S/K)+.5*v*v*T)/(v*Math.sqrt(T));
+  return Math.max(.05,S*ncdf(d1)-K*ncdf(d1-v*Math.sqrt(T)));
+}
+function bsp(S,K,T,v){
+  if(T<1e-5||v<.005||K<=0)return Math.max(0,K-S);
+  const d1=(Math.log(S/K)+.5*v*v*T)/(v*Math.sqrt(T));
+  return Math.max(.05,K*ncdf(v*Math.sqrt(T)-d1)-S*ncdf(-d1));
+}
+function ivol(sp,st,dte){
+  const T=Math.max(.001,dte/252);
+  return Math.min(3,Math.max(.04,st/(0.7979*sp*Math.sqrt(T))));
+}
 const r1=x=>Math.round(x*10)/10;
 const r2=x=>Math.round(x*100)/100;
 const fmt=n=>Number(n).toLocaleString('en-IN');
 function gf(o,...ks){for(const k of ks)if(o&&o[k]!=null)return+o[k]||0;return 0;}
 
-// ══ FYERS DATA ════════════════════════════════════════════════════
-const FD={
-  connected:false,loading:false,error:null,lastUpdated:null,
-  spot:null,vix:null,expiries:[],selExp:0,
-  chain:[],atm:null,straddle:null,pcr:null,maxPain:null,
-  chg:0,chgP:0,
-};
-
-// ══ STATE ═════════════════════════════════════════════════════════
-const ST={
-  clientId:localStorage.getItem('fy_cid')||'',
-  accessToken:localStorage.getItem('fy_tok')||'',
-  proxyUrl:localStorage.getItem('fy_px')||'',
-  strikeCount:22,autoRId:null,
-  spot:24500,vix:13.5,sw:220,dte:4,range:16,filter:'all',
-  get aSpot(){return FD.spot||this.spot;},
-  get aVix(){return FD.vix||this.vix;},
-  get aStrd(){return FD.straddle||this.sw;},
-  get T(){return Math.max(.001,this.dte/252);},
-  get v(){return ivol(this.aSpot,this.aStrd,this.dte);},
-  get recGap(){const s=this.aStrd;return s<=140?50:s<=240?100:s<=380?150:200;},
-};
-
-// ══ FYERS API ════════════════════════════════════════════════════
-const API={
-  BASE:'https://api.fyers.in/api/v3',
-  get hdrs(){return{'Authorization':`${ST.clientId}:${ST.accessToken}`};},
-  url(p){return ST.proxyUrl?`${ST.proxyUrl.replace(/\/$/,'')}${p}`:this.BASE+p;},
-  async get(path){
-    const r=await fetch(this.url(path),{method:'GET',headers:this.hdrs,mode:'cors'});
-    if(!r.ok)throw new Error(`HTTP ${r.status} ${r.statusText}`);
-    const d=await r.json();
-    if(d.s&&d.s!=='ok')throw new Error(d.message||d.errmsg||'API error');
-    return d;
-  },
-  quotes(s){return this.get(`/quotes?symbols=${encodeURIComponent(Array.isArray(s)?s.join(','):s)}`);},
-  optionChain(s='NSE:NIFTY50-INDEX'){return this.get(`/data/option-chain?symbol=${encodeURIComponent(s)}&strikecount=${ST.strikeCount}`);},
-};
-
-// ══ CONNECT / FETCH ══════════════════════════════════════════════
-async function doConnect(){
-  const id=document.getElementById('ci-id'),tok=document.getElementById('ci-tok'),px=document.getElementById('ci-px');
-  if(id)ST.clientId=id.value.trim();
-  if(tok)ST.accessToken=tok.value.trim();
-  if(px)ST.proxyUrl=px.value.trim();
-  if(!ST.clientId||!ST.accessToken){alert('Enter Client ID and Access Token first.');return;}
-  localStorage.setItem('fy_cid',ST.clientId);
-  localStorage.setItem('fy_tok',ST.accessToken);
-  localStorage.setItem('fy_px',ST.proxyUrl);
-  await fetchAll();
+// ─── DATE / TRADING-DAY HELPER ───────────────────────────────────
+function calcDTE(expStr){
+  // Parse common Fyers expiry formats → count trading days (Mon-Fri) remaining
+  if(!expStr)return 4;
+  let d=null;
+  const mo={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+  let m;
+  // "25-Jan-2024" | "25-JAN-2024"
+  m=expStr.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/);
+  if(m)d=new Date(+m[3],mo[m[2].toLowerCase()],+m[1]);
+  // "2024-01-25"
+  if(!d){m=expStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(m)d=new Date(+m[1],+m[2]-1,+m[3]);}
+  // "25-01-2024"
+  if(!d){m=expStr.match(/^(\d{2})-(\d{2})-(\d{4})$/);if(m)d=new Date(+m[3],+m[2]-1,+m[1]);}
+  // Unix timestamp (ms or s)
+  if(!d&&/^\d{8,13}$/.test(expStr)){const ts=+expStr;d=new Date(ts>1e12?ts:ts*1000);}
+  if(!d||isNaN(d))return 4;
+  const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));
+  now.setHours(0,0,0,0);
+  const exp=new Date(d);exp.setHours(0,0,0,0);
+  let count=0;const cur=new Date(now);
+  while(cur<=exp){const wd=cur.getDay();if(wd>=1&&wd<=5)count++;cur.setDate(cur.getDate()+1);}
+  return Math.max(1,count);
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// 2. FYERS DATA STORE
+// ═══════════════════════════════════════════════════════════════════
+const FD={
+  connected:false,loading:false,error:null,lastUpdated:null,wsConnected:false,
+  spot:null,vix:null,expiries:[],selExp:0,
+  chain:[],atm:null,straddle:null,pcr:null,maxPain:null,
+  chg:null,chgP:null,open:null,high:null,low:null,
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// 3. STATE
+// ═══════════════════════════════════════════════════════════════════
+const ST={
+  strikeCount:12,autoRId:null,
+  spot:24500,vix:13.5,sw:220,snw:340,sm:520,dte:4,exp:'w',lotSize:75,
+  positions:[],nextId:1,selPosId:null,pendingAdd:null,
+  cs:{str:24500,type:'C',gap:100,dbt:14,flp:110},
+  rsk:{dlim:-5000,wlim:-15000,dpnl:-800,wpnl:2200,dlta:8,vga:-85,mdt:50,mvg:300},
+  get aSpot(){return FD.spot||this.spot;},
+  get aVix(){return FD.vix||this.vix;},
+  get aStrd(){return FD.straddle||({w:this.sw,nw:this.snw,m:this.sm}[this.exp]||this.sw);},
+  get T(){return Math.max(.001,this.dte/252);},
+  get v(){return ivol(this.aSpot,this.aStrd,this.dte);},
+  get aGap(){const s=this.aStrd;return s<=140?50:s<=240?100:s<=380?150:200;},
+  get aCombo(){const s=this.aStrd;return s<=160?{l:'1:2',r:2.0}:s<=280?{l:'2:3',r:1.5}:{l:'3:4',r:1.33};},
+  get regime(){return this.aVix>20?{l:'High Vol',c:'rb-hv'}:this.aVix>14?{l:'Moderate',c:'rb-sw'}:{l:'Low Vol',c:'rb-sw'};},
+  get isOpen(){
+    const i=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));
+    const d=i.getDay(),m=i.getHours()*60+i.getMinutes();
+    return d>=1&&d<=5&&m>=555&&m<=930;
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// 4. FYERS API LAYER — talks to YOUR backend on Render, never to FYERS
+//    directly. The backend holds the access token and injects it.
+// ═══════════════════════════════════════════════════════════════════
+// ⚠️ EDIT THIS to your deployed backend's URL (no trailing slash):
+const BACKEND_URL='https://your-service.onrender.com';
+
+const API={
+  get BASE(){return `${BACKEND_URL}/api/fyers`;},
+  async get(path,retries=2){
+    const ctrl=new AbortController();
+    const tid=setTimeout(()=>ctrl.abort(),12000);  // 12-second timeout
+    try{
+      const r=await fetch(this.BASE+path,{method:'GET',mode:'cors',signal:ctrl.signal});
+      clearTimeout(tid);
+      const d=await r.json();
+      if(r.status===401)throw new Error(d.message||'Not connected — click Connect');
+      if(!r.ok)throw new Error(`HTTP ${r.status} — ${r.statusText}`);
+      if(d.s&&d.s!=='ok')throw new Error(d.message||d.errmsg||`Fyers: ${JSON.stringify(d).slice(0,120)}`);
+      return d;
+    }catch(e){
+      clearTimeout(tid);
+      if(retries>0&&!(e.name==='AbortError'&&retries<2)){
+        await new Promise(r=>setTimeout(r,1200*(3-retries)));
+        return this.get(path,retries-1);
+      }
+      if(e.name==='AbortError')throw new Error('Request timed out — backend may be waking up, try again');
+      throw e;
+    }
+  },
+  quotes(syms){
+    const s=Array.isArray(syms)?syms.join(','):syms;
+    return this.get(`/quotes?symbols=${encodeURIComponent(s)}`);
+  },
+  optionChain(sym='NSE:NIFTY50-INDEX'){
+    // 25 strikes each side gives comfortable coverage for Exit Tool (±500 pts)
+    return this.get(`/data/option-chain?symbol=${encodeURIComponent(sym)}&strikecount=25`);
+  },
+};
+
+// ─── FETCH ORCHESTRATOR ───────────────────────────────────────────
 async function fetchAll(){
-  FD.loading=true;FD.error=null;rHdr();
+  FD.loading=true;FD.error=null;
+  rHdr();
   try{
-    const[qd,od]=await Promise.all([
+    const [qd,od]=await Promise.all([
       API.quotes(['NSE:NIFTY50-INDEX','NSE:INDIA VIX-INDEX']),
       API.optionChain(),
     ]);
-    parseQ(qd);parseOC(od);
+    parseQuotes(qd);
+    parseOC(od);
     FD.connected=true;FD.lastUpdated=new Date();
   }catch(e){
     FD.error=e.message;
-    try{const qd=await API.quotes(['NSE:NIFTY50-INDEX','NSE:INDIA VIX-INDEX']);parseQ(qd);FD.connected=true;FD.lastUpdated=new Date();}
-    catch(e2){FD.connected=false;FD.error=e2.message;}
+    // Fallback: try quotes only
+    try{
+      const qd=await API.quotes(['NSE:NIFTY50-INDEX','NSE:INDIA VIX-INDEX']);
+      parseQuotes(qd);
+      FD.connected=true;FD.lastUpdated=new Date();
+      FD.error='Option chain unavailable: '+e.message;
+    }catch(e2){FD.connected=false;FD.error=e2.message;}
   }
   FD.loading=false;
-  document.getElementById('btn-ref').disabled=!FD.connected;
-  const esel=document.getElementById('ci-exp');
-  if(FD.expiries.length){
-    esel.innerHTML=FD.expiries.map((e,i)=>`<option value="${i}" ${i===FD.selExp?'selected':''}>${e}</option>`).join('');
-    esel.onchange=()=>{FD.selExp=+esel.value;go();};
-  }
-  rHdr();go();
+  rHdr();renderCur();
 }
 
-async function doRefresh(){if(ST.clientId&&ST.accessToken)await fetchAll();}
-function toggleAuto(on){if(ST.autoRId){clearInterval(ST.autoRId);ST.autoRId=null;}if(on)ST.autoRId=setInterval(doRefresh,30000);}
+async function doRefresh(){
+  if(!FD.connected)return;
+  await fetchAll();
+}
 
-// ══ PARSERS ══════════════════════════════════════════════════════
-function parseQ(data){
+// Ask the backend whether it already holds a live token (e.g. page reload
+// after connecting earlier today) — equivalent to checkBrokerStatus() in
+// FyersAuth.tsx.
+async function checkBrokerStatus(){
+  if(!BACKEND_URL||BACKEND_URL.includes('your-service'))return;
+  try{
+    const r=await fetch(`${BACKEND_URL}/auth/status`,{mode:'cors'});
+    const d=await r.json();
+    if(d.connected&&!FD.connected){
+      await fetchAll();
+      toggleAuto(true);
+    }
+  }catch(e){/* backend asleep or unreachable — ignore, user can click Connect */}
+}
+
+function doDisconnect(){
+  FD.connected=false;FD.chain=[];FD.spot=null;FD.vix=null;
+  FD.straddle=null;FD.pcr=null;FD.maxPain=null;
+  if(ST.autoRId){clearInterval(ST.autoRId);ST.autoRId=null;}
+  WSF.disconnect();  // Stop real-time WebSocket feed
+  if(BACKEND_URL&&!BACKEND_URL.includes('your-service')){
+    fetch(`${BACKEND_URL}/auth/disconnect`,{method:'POST',mode:'cors'}).catch(()=>{});
+  }
+  rHdr();renderCur();
+}
+
+function toggleAuto(on){
+  if(ST.autoRId){clearInterval(ST.autoRId);ST.autoRId=null;}
+  if(on){
+    const interval=ST.isOpen?15000:60000;  // 15 s market-open, 60 s otherwise
+    ST.autoRId=setInterval(doRefresh,interval);
+    // Reschedule whenever market status may have changed
+    ST._autoChk=setInterval(()=>{
+      if(!ST.autoRId)return;
+      const want=ST.isOpen?15000:60000;
+      if(want!==ST._autoIntv){
+        clearInterval(ST.autoRId);
+        ST.autoRId=setInterval(doRefresh,want);
+        ST._autoIntv=want;
+      }
+    },60000);
+  }else{
+    if(ST._autoChk){clearInterval(ST._autoChk);ST._autoChk=null;}
+  }
+}
+
+// ─── PARSERS ─────────────────────────────────────────────────────
+function parseQuotes(data){
   for(const item of(data.d||[])){
-    const v=item.v||{};const lp=gf(v,'lp','last_price','close');if(!lp)continue;
-    if(item.n==='NSE:NIFTY50-INDEX'){FD.spot=lp;ST.spot=lp;FD.chg=gf(v,'ch');FD.chgP=r2(gf(v,'chp'));}
+    const v=item.v||{};
+    const lp=gf(v,'lp','last_price','close');
+    if(!lp)continue;
+    if(item.n==='NSE:NIFTY50-INDEX'){
+      FD.spot=lp;ST.spot=lp;
+      FD.chg=gf(v,'ch','change');FD.chgP=r2(gf(v,'chp','change_percent'));
+      FD.open=gf(v,'open');FD.high=gf(v,'high');FD.low=gf(v,'low');
+    }
     if(item.n==='NSE:INDIA VIX-INDEX'){FD.vix=r2(lp);ST.vix=r2(lp);}
   }
-  sv('m-sp',ST.spot);sv('m-vx',ST.vix);
 }
 
 function parseOC(data){
-  const raw=data.data||{},und=raw.underlyingData||{};
-  const lp=gf(und,'ltp','last_price');if(lp){FD.spot=lp;ST.spot=lp;}
+  const raw=data.data||{};
+  const und=raw.underlyingData||{};
+  const lp=gf(und,'ltp','last_price');
+  if(lp){FD.spot=lp;ST.spot=lp;}
+
   const expList=raw.expiryData||[];
   if(!expList.length)throw new Error('Empty expiryData in option chain response');
   FD.expiries=expList.map(e=>e.expiry||e.date||String(e));
-  const sel=expList[Math.min(FD.selExp,expList.length-1)];
-  FD.chain=(sel.optionChainData||sel.data||[]).map(item=>{
-    const K=item.strikePrice||item.strike_price||0;if(!K)return null;
-    const c=item.callOptions||item.CE||{},p=item.putOptions||item.PE||{};
-    function pp(o){return{ltp:gf(o,'ltp','last_price'),oi:gf(o,'open_interest','oi','OI'),oiChg:gf(o,'oi_change','change_in_oi'),vol:gf(o,'volume'),iv:gf(o,'iv')};}
-    return{strike:K,call:pp(c),put:pp(p)};
-  }).filter(Boolean).sort((a,b)=>a.strike-b.strike);
-  if(FD.spot&&FD.chain.length){
-    const a=FD.chain.reduce((x,y)=>Math.abs(y.strike-FD.spot)<Math.abs(x.strike-FD.spot)?y:x);
-    FD.atm=a.strike;FD.straddle=r1(a.call.ltp+a.put.ltp);ST.sw=FD.straddle;sv('m-st',FD.straddle);
+
+  // ── Parse a single expiry's chain data into normalised rows ───────
+  function parseChain(expData){
+    const chainRaw=expData.optionChainData||expData.data||[];
+    return chainRaw.map(item=>{
+      const K=item.strikePrice||item.strike_price||0;
+      if(!K)return null;
+      const c=item.callOptions||item.CE||{};
+      const p=item.putOptions||item.PE||{};
+      function parse(o){
+        return{
+          ltp:gf(o,'ltp','last_price'),
+          oi:gf(o,'open_interest','oi','OI'),
+          oiChg:gf(o,'oi_change','change_in_oi','OI_Change'),
+          vol:gf(o,'volume','vol'),
+          iv:gf(o,'iv','implied_volatility'),
+          delta:gf(o,'delta'),gamma:gf(o,'gamma'),
+          theta:gf(o,'theta'),vega:gf(o,'vega'),
+          bid:gf(o,'bid'),ask:gf(o,'ask'),
+        };
+      }
+      return{strike:K,call:parse(c),put:parse(p)};
+    }).filter(Boolean).sort((a,b)=>a.strike-b.strike);
   }
-  const cOI=FD.chain.reduce((s,c)=>s+c.call.oi,0),pOI=FD.chain.reduce((s,c)=>s+c.put.oi,0);
+
+  // ── Compute ATM straddle for an arbitrary chain snapshot ──────────
+  function atmStraddle(chain,spot){
+    if(!chain.length||!spot)return 0;
+    const atm=chain.reduce((a,b)=>Math.abs(b.strike-spot)<Math.abs(a.strike-spot)?b:a);
+    return r1(atm.call.ltp+atm.put.ltp);
+  }
+
+  // ── Selected expiry (weekly by default) ──────────────────────────
+  const selIdx=Math.min(FD.selExp,expList.length-1);
+  const sel=expList[selIdx];
+  FD.chain=parseChain(sel);
+
+  // Auto-calculate DTE from the selected expiry string
+  const expStr=sel.expiry||sel.date||'';
+  const autoDte=calcDTE(expStr);
+  if(autoDte>0)ST.dte=autoDte;
+
+  // ── ATM & weekly straddle ─────────────────────────────────────────
+  if(FD.spot&&FD.chain.length){
+    const atmRow=FD.chain.reduce((a,b)=>Math.abs(b.strike-FD.spot)<Math.abs(a.strike-FD.spot)?b:a);
+    FD.atm=atmRow.strike;
+    FD.straddle=r1(atmRow.call.ltp+atmRow.put.ltp);
+    ST.sw=FD.straddle;
+  }
+
+  // ── Next-week straddle from 2nd expiry ───────────────────────────
+  if(expList.length>1&&selIdx===0){
+    const nwChain=parseChain(expList[1]);
+    const nwStrd=atmStraddle(nwChain,FD.spot);
+    if(nwStrd>0)ST.snw=nwStrd;
+  }
+
+  // ── Monthly straddle — find first expiry ≥ 20 trading days away ──
+  for(let i=2;i<expList.length;i++){
+    const expDateStr=expList[i].expiry||expList[i].date||'';
+    if(calcDTE(expDateStr)>=20){
+      const mChain=parseChain(expList[i]);
+      const mStrd=atmStraddle(mChain,FD.spot);
+      if(mStrd>0){ST.sm=mStrd;break;}
+    }
+  }
+
+  // ── PCR ──────────────────────────────────────────────────────────
+  const cOI=FD.chain.reduce((s,c)=>s+c.call.oi,0);
+  const pOI=FD.chain.reduce((s,c)=>s+c.put.oi,0);
   FD.pcr=cOI>0?r2(pOI/cOI):0;
+
+  // ── Max Pain ─────────────────────────────────────────────────────
   let minL=Infinity,mp=0;
   for(const t of FD.chain){
     const K=t.strike;let L=0;
-    for(const o of FD.chain)L+=Math.max(0,K-o.strike)*o.call.oi+Math.max(0,o.strike-K)*o.put.oi;
+    for(const o of FD.chain){
+      L+=Math.max(0,K-o.strike)*o.call.oi+Math.max(0,o.strike-K)*o.put.oi;
+    }
     if(L<minL){minL=L;mp=K;}
   }
   FD.maxPain=mp;
 }
-function sv(id,v){const e=document.getElementById(id);if(e&&v!=null)e.value=v;}
 
-// ══ PRICE HELPERS ════════════════════════════════════════════════
-function getC(K){
-  if(FD.connected&&FD.chain.length){const r=FD.chain.find(c=>c.strike===K);if(r&&r.call.ltp)return r1(r.call.ltp);}
+
+// ═══════════════════════════════════════════════════════════════════
+// 4b. FYERS WEBSOCKET REAL-TIME DATA FEED (currently unused)
+// The access token now lives only on the backend (never sent to the
+// browser), so this dashboard can't open a direct authenticated WS to
+// FYERS anymore. Live updates instead come from REST polling through
+// the backend (see toggleAuto / fetchAll). This class is kept as a
+// no-op / reference in case you later add a WS relay on the backend.
+// ═══════════════════════════════════════════════════════════════════
+const WSF={
+  ws:null, retries:0, _MAX:6, _DELAY:3000, _pingId:null,
+
+  connect(){
+    return; // disabled — see note above; live data comes from REST polling
+  },
+
+  _open(){
+    if(this.ws){try{this.ws.close();}catch(e){}}
+    try{
+      // Fyers data-feed WebSocket (v2 socket) — direct connection.
+      // Left in place for reference; unreachable from connect() above since
+      // the browser no longer holds an access token to authenticate with.
+      const wsUrl='wss://api.fyers.in/socket/v2';
+      this.ws=new WebSocket(wsUrl);
+      this.ws.binaryType='arraybuffer';
+      this.ws.onopen=()=>this._onOpen();
+      this.ws.onmessage=(e)=>this._onMsg(e);
+      this.ws.onerror=()=>{};
+      this.ws.onclose=()=>this._onClose();
+    }catch(e){console.warn('[WS] connect failed:',e.message);}
+  },
+
+  _onOpen(){
+    // Authenticate — would need `${clientId}:${accessToken}` from the
+    // backend (e.g. a short-lived WS-auth endpoint) to actually work.
+    this.ws.send(JSON.stringify({T:'conn',SLIST:[],access_token:''}));
+    // Keep-alive ping every 30 s
+    this._pingId=setInterval(()=>{
+      if(this.ws&&this.ws.readyState===1)
+        this.ws.send(JSON.stringify({T:'ping'}));
+    },30000);
+  },
+
+  _onClose(){
+    FD.wsConnected=false;
+    if(this._pingId){clearInterval(this._pingId);this._pingId=null;}
+    if(FD.connected&&this.retries<this._MAX){
+      const delay=this._DELAY*Math.pow(1.6,this.retries++);
+      setTimeout(()=>this._open(),delay);
+    }
+  },
+
+  _onMsg(event){
+    // Text frame — control messages (JSON)
+    if(typeof event.data==='string'){
+      try{
+        const msg=JSON.parse(event.data);
+        if(msg.T==='conn'&&(msg.code===200||msg.s==='ok')){
+          FD.wsConnected=true;
+          // Subscribe to NIFTY spot + VIX
+          this.ws.send(JSON.stringify({
+            T:'SUB_L2',
+            SLIST:['NSE:NIFTY50-INDEX','NSE:INDIA VIX-INDEX'],
+            SUB_T:1
+          }));
+        }else if(msg.T==='error'){
+          console.warn('[WS] server error:',msg.msg||msg.message||JSON.stringify(msg));
+        }
+        // JSON-format tick (some Fyers WS versions send JSON directly)
+        if(msg.symbol||msg.n){this._applyTick(msg);}
+      }catch(e){}
+      return;
+    }
+    // Binary frame — Fyers proprietary format
+    if(event.data instanceof ArrayBuffer){
+      this._parseBinary(event.data);
+    }
+  },
+
+  _parseBinary(buf){
+    try{
+      const v=new DataView(buf);
+      if(buf.byteLength<30)return;
+      const type=v.getUint8(0);
+      if(type!==1)return;                       // 1 = index quote
+      // Fyers index tick layout (big-endian floats):
+      // [0] type  [1-4] token  [5-8] ts
+      // [9-12] open  [13-16] high  [17-20] low  [21-24] prev_close
+      // [25-28] ltp  [29-32] volume
+      const ltp=v.getFloat32(25,false);
+      if(ltp>0&&ltp<100000){
+        // We don't have the symbol name here, but index tick within NIFTY range
+        // is the only float32 at this offset within a reasonable NSE range.
+        // Cross-check: value between 10000-30000 → almost certainly NIFTY
+        if(ltp>10000&&ltp<30000){
+          FD.spot=r1(ltp);ST.spot=r1(ltp);
+          FD.lastUpdated=new Date();
+          rHdr();
+          if(curTab==='exit')rExit();
+        }
+        // VIX range 5-50
+        if(ltp>5&&ltp<50){
+          // Could be VIX — only update if different tick (no NIFTY collision at this range)
+        }
+      }
+    }catch(e){}
+  },
+
+  _applyTick(tick){
+    const sym=tick.symbol||tick.n;
+    const ltp=+(tick.lp||tick.ltp||0);
+    if(!ltp)return;
+    if(sym==='NSE:NIFTY50-INDEX'){
+      FD.spot=r1(ltp);ST.spot=r1(ltp);
+      FD.chg=+(tick.ch||tick.change||FD.chg||0);
+      FD.chgP=r2(+(tick.chp||tick.change_percent||FD.chgP||0));
+      FD.lastUpdated=new Date();
+      rHdr();
+      if(curTab==='exit')rExit();
+    }
+    if(sym==='NSE:INDIA VIX-INDEX'){
+      FD.vix=r2(ltp);ST.vix=r2(ltp);rHdr();
+    }
+  },
+
+  disconnect(){
+    if(this._pingId){clearInterval(this._pingId);this._pingId=null;}
+    if(this.ws){try{this.ws.close();}catch(e){}this.ws=null;}
+    FD.wsConnected=false;
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// 5. MARKET HELPERS
+// ═══════════════════════════════════════════════════════════════════
+function getCallLTP(K){
+  if(FD.connected&&FD.chain.length){
+    const r=FD.chain.find(c=>c.strike===K);
+    if(r&&r.call.ltp)return r1(r.call.ltp);
+  }
   return r1(bsc(ST.aSpot,K,ST.T,ST.v));
 }
-function getP(K){
-  if(FD.connected&&FD.chain.length){const r=FD.chain.find(c=>c.strike===K);if(r&&r.put.ltp)return r1(r.put.ltp);}
+function getPutLTP(K){
+  if(FD.connected&&FD.chain.length){
+    const r=FD.chain.find(c=>c.strike===K);
+    if(r&&r.put.ltp)return r1(r.put.ltp);
+  }
   return r1(bsp(ST.aSpot,K,ST.T,ST.v));
 }
-function cbf(K,g){return Math.max(.5,r1(getC(K)-2*getC(K+g)+getC(K+2*g)));}
-function pbf(K,g){return Math.max(.5,r1(getP(K)-2*getP(K-g)+getP(K-2*g)));}
+function cbf(K,g){
+  const g2=g||ST.aGap;
+  return Math.max(.5,r1(getCallLTP(K)-2*getCallLTP(K+g2)+getCallLTP(K+2*g2)));
+}
+function pbf(K,g){
+  const g2=g||ST.aGap;
+  return Math.max(.5,r1(getPutLTP(K)-2*getPutLTP(K-g2)+getPutLTP(K-2*g2)));
+}
 function vp(bf,flp){return flp>0?Math.round(bf/flp*1000)/10:0;}
-function vc(p){return p<=12?'vi':p<=20?'vp':p<=25?'vw':'vf';}
+function vs(p){
+  return p<=10?{c:'ti',l:'Ideal',tc:'ideal'}
+       :p<=20?{c:'tp',l:'Pass',tc:'pass'}
+       :p<=25?{c:'tw',l:'Border',tc:'warn'}
+             :{c:'tf',l:'Fail',tc:'fail'};
+}
+function mn(K,t){
+  if(t==='C')return K<ST.aSpot-8?'ITM':K>ST.aSpot+8?'OTM':'ATM';
+  return K>ST.aSpot+8?'ITM':K<ST.aSpot-8?'OTM':'ATM';
+}
+function mc(m){return m==='ITM'?'tm':m==='ATM'?'ta':'to';}
+function simBF(K,type,mv,gap){
+  const ns=ST.aSpot+mv,g2=gap||ST.aGap;
+  const dvix=mv<0?Math.abs(mv/ST.aSpot)*75:-mv/ST.aSpot*45;
+  const nvix=Math.max(8,ST.aVix+dvix);
+  const nst=ST.aStrd*(nvix/ST.aVix)*(ns/ST.aSpot);
+  const nv=ivol(ns,nst,ST.dte);
+  if(type==='C')return Math.max(.5,r1(bsc(ns,K,ST.T,nv)-2*bsc(ns,K+g2,ST.T,nv)+bsc(ns,K+2*g2,ST.T,nv)));
+  return Math.max(.5,r1(bsp(ns,K,ST.T,nv)-2*bsp(ns,K-g2,ST.T,nv)+bsp(ns,K-2*g2,ST.T,nv)));
+}
 
-// ══ HEADER ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+// 6. HEADER
+// ═══════════════════════════════════════════════════════════════════
 function rHdr(){
   const sp=ST.aSpot,vx=ST.aVix,st=ST.aStrd;
-  const atm=FD.atm||Math.round(sp/50)*50;
-  const cc=(FD.chg||0)>=0?'#22c55e':'#ef4444';
-  const el=id=>document.getElementById(id);
-  el('h-sp').innerHTML=`${fmt(sp)}<span style="font-size:9px;color:${cc}"> ${(FD.chg||0)>=0?'▲':'▼'}${Math.abs(FD.chg||0).toFixed(1)}</span>`;
-  el('h-vx').textContent=vx.toFixed?vx.toFixed(2):vx;
-  el('h-st').textContent=st||'–';
-  el('h-atm').textContent=fmt(atm);
-  el('h-pcr').textContent=FD.pcr||'–';
-  el('h-mp').textContent=FD.maxPain?fmt(FD.maxPain):'–';
-  el('h-gap').textContent=ST.recGap+' pts';
-  const mb=el('h-mode');
-  if(FD.loading){mb.className='bdg demo';mb.innerHTML='<span class="sp"></span>Fetching…';}
-  else if(FD.connected){mb.className='bdg live';mb.textContent='● LIVE '+(FD.lastUpdated?.toLocaleTimeString('en-IN')||'');}
-  else if(FD.error){mb.className='bdg err';mb.textContent='✗ '+FD.error.slice(0,40);}
-  else{mb.className='bdg demo';mb.textContent='◉ DEMO';}
-  // Update ★ star on recommended gap headers
-  const rec=ST.recGap;
-  [{id:'hc1',g:100},{id:'hc2',g:150},{id:'hc3',g:200},
-   {id:'hp1',g:100},{id:'hp2',g:150},{id:'hp3',g:200}].forEach(({id,g})=>{
-    const e=document.getElementById(id);
-    if(e)e.textContent=g+' GAP'+(g===rec?' ★':'');
-  });
-  const lr=el('leg-rec');
-  if(lr)lr.textContent=`  ★ Recommended: ${rec} pts  (straddle ${st} ÷ 2 = ${Math.round(st/2)} → nearest 50)`;
+  document.getElementById('h-sp').innerHTML=
+    `${fmt(sp)}<span style="font-size:10px;color:${(FD.chg||0)>=0?'var(--suc)':'var(--dng)'}"> ${(FD.chg||0)>=0?'▲':'▼'} ${Math.abs(FD.chg||0).toFixed(1)} (${Math.abs(FD.chgP||0).toFixed(2)}%)</span>`;
+  document.getElementById('h-vx').textContent=vx.toFixed?vx.toFixed(2):vx;
+  document.getElementById('h-st').textContent=st||'–';
+  document.getElementById('h-snw').textContent=ST.snw||'–';
+  document.getElementById('h-sm').textContent=ST.sm||'–';
+  document.getElementById('h-pcr').textContent=FD.pcr||'–';
+  document.getElementById('h-mp').textContent=FD.maxPain?fmt(FD.maxPain):'–';
+  document.getElementById('h-gc').textContent=`${ST.aGap} / ${ST.aCombo.l}`;
+  const rb=document.getElementById('h-reg');
+  rb.textContent=ST.regime.l;rb.className='badge '+ST.regime.c;
+  const mb=document.getElementById('h-mode');
+  if(FD.loading){mb.className='badge demo';mb.innerHTML='<span class="spin"></span>Fetching…';}
+  else if(FD.connected){mb.className='badge live';mb.textContent='● LIVE';}
+  else if(FD.error){mb.className='badge err';mb.textContent='✗ Error';}
+  else{mb.className='badge demo';mb.textContent='◉ DEMO';}
+  rHeaderConnect();
 }
 
-// ══ FILTER ════════════════════════════════════════════════════════
-function sf(m){
-  ST.filter=m;
-  document.querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));
-  document.getElementById('fb-'+m).classList.add('on');
-  renderTable();
+// ═══════════════════════════════════════════════════════════════════
+// 7. PANEL RENDERS
+// ═══════════════════════════════════════════════════════════════════
+
+// ── HEADER CONNECT (popup OAuth — driven by the FYERS backend on Render) ──
+// The backend owns FYERS_APP_ID/FYERS_SECRET_ID and the access token, so the
+// popover no longer needs App ID / Secret ID fields — just a single click.
+const HC={isConnecting:false,open:false};
+
+function hcToast(msg,type){
+  const box=document.getElementById('hc-toasts');
+  if(!box)return;
+  const d=document.createElement('div');
+  d.className='hc-toast '+(type==='error'?'err':'suc');
+  d.textContent=msg;
+  box.appendChild(d);
+  setTimeout(()=>{d.style.opacity='0';d.style.transition='opacity .25s';setTimeout(()=>d.remove(),260);},3200);
 }
 
-// ══ STRIKES ══════════════════════════════════════════════════════
-function getStrikes(){
-  const atm=FD.atm||Math.round(ST.aSpot/50)*50;
-  const set=new Set(FD.chain.map(c=>c.strike));
-  const rng=ST.range||16;
-  for(let i=-rng;i<=rng;i++)set.add(atm+i*50);
-  return[...set].filter(k=>k>0).sort((a,b)=>a-b);
+function toggleHcPop(force){
+  HC.open=force!=null?force:!HC.open;
+  rHeaderConnect();
 }
 
-// ══ RENDER ════════════════════════════════════════════════════════
-function renderTable(){
-  const atm=FD.atm||Math.round(ST.aSpot/50)*50;
-  const strikes=getStrikes();
+// setIsConnecting-equivalent + full re-render of the header button/popover
+function rHeaderConnect(){
+  const wrap=document.getElementById('hc-wrap');
+  if(!wrap)return;
+  const ok=FD.connected;
 
-  // One gap cell (call or put side)
-  function gc(bf,pct,cls){
-    const vcc=vc(pct);
-    return`<td class="gc ${cls}${pct>25?' fd':''}">
-      <div class="bfn">${bf}</div>
-      <div class="vpn ${vcc}">${pct.toFixed(1)}%</div>
-    </td>`;
+  const btn=ok
+    ?`<button class="hc-btn on" onclick="toggleHcPop()">● FYERS Connected</button>`
+    :`<button class="hc-btn off" onclick="handleHeaderConnect()" ${HC.isConnecting?'disabled':''}>
+        ${HC.isConnecting?'<span class="spin"></span>Opening FYERS Login…':'⚡ Connect'}
+      </button>`;
+
+  let pop='';
+  if(HC.open&&ok){
+    pop=`<div class="hc-pop">
+      <div class="hc-pop-title">✅ FYERS Connected</div>
+      <div class="hc-connected">
+        <div class="hc-row">${FD.lastUpdated?'Last synced '+FD.lastUpdated.toLocaleTimeString('en-IN'):''}</div>
+        <button class="hc-dc" onclick="doDisconnect();toggleHcPop(false)">Disconnect</button>
+      </div>
+    </div>`;
+  }
+  wrap.innerHTML=btn+pop;
+}
+
+// Mirrors handleConnect() in FyersAuth.tsx, but the popup goes straight to
+// the backend's /auth/login (which owns FYERS_APP_ID/SECRET and redirects
+// to FYERS) — no App ID / Secret ID form needed in the browser.
+async function handleHeaderConnect(){
+  if(!BACKEND_URL||BACKEND_URL.includes('your-service')){
+    hcToast('Set BACKEND_URL to your Render backend URL first','error');return;
+  }
+  HC.isConnecting=true;rHeaderConnect();
+  try{
+    const loginUrl=`${BACKEND_URL}/auth/login`;
+    const popup=window.open(loginUrl,'FyersAuth','width=600,height=700,scrollbars=yes,resizable=yes');
+
+    if(!popup){
+      hcToast('Popup blocked! Redirecting in same window...','error');
+      setTimeout(()=>{window.location.href=loginUrl;},1000);
+    }else{
+      const checkPopup=setInterval(()=>{
+        if(popup.closed){
+          clearInterval(checkPopup);
+          HC.isConnecting=false;
+          rHeaderConnect();
+        }
+      },500);
+    }
+  }catch(error){
+    hcToast(error.message||'Connection failed','error');
+    HC.isConnecting=false;rHeaderConnect();
+  }
+}
+
+// Listen for the success/error message the backend's /auth/callback page
+// posts once it has exchanged the code for a token — same contract as the
+// useEffect('message', …) handler in FyersAuth.tsx.
+window.addEventListener('message',(event)=>{
+  if(!BACKEND_URL||new URL(BACKEND_URL).origin!==event.origin)return;
+  if(event.data&&event.data.type==='BROKER_AUTH_SUCCESS'){
+    hcToast(`${event.data.brokerName||'FYERS'} connected successfully!`,'success');
+    HC.isConnecting=false;toggleHcPop(false);
+    fetchAll().then(()=>{toggleAuto(true);});
+  }else if(event.data&&event.data.type==='BROKER_AUTH_ERROR'){
+    hcToast(event.data.error||'Authentication failed','error');
+    HC.isConnecting=false;rHeaderConnect();
+  }
+});
+
+// ── EXIT TOOL ─────────────────────────────────────────────────────
+function rExit(){
+  const g=ST.aGap,atm=FD.atm||Math.round(ST.aSpot/50)*50;
+
+  // ITM 6 rows + ATM + OTM 10 rows = 17 rows per side, 50-pt steps
+  // Calls: ITM = strike < ATM | OTM = strike > ATM
+  // Puts : ITM = strike > ATM | OTM = strike < ATM
+  const callStrikes=[];
+  for(let i=-6;i<=10;i++) callStrikes.push(atm+i*50);
+  callStrikes.sort((a,b)=>a-b);   // ascending  -> 6 ITM, ATM, 10 OTM
+
+  const putStrikes=[];
+  for(let i=-10;i<=6;i++) putStrikes.push(atm+i*50);
+  putStrikes.sort((a,b)=>b-a);    // descending -> 6 ITM (above ATM), ATM, 10 OTM (below ATM)
+
+  // VAL% colour – matches existing vs() thresholds
+  function vc(pct){
+    return pct<=10?'var(--acc)':pct<=20?'var(--suc)':pct<=25?'var(--wrn)':'var(--dng)';
   }
 
-  let shown=0;
-  const rows=strikes.map(K=>{
-    // Get prices
-    const cFLP=getC(K), pFLP=getP(K);
-    // BF rates
-    const c1=cbf(K,100),c2=cbf(K,150),c3=cbf(K,200);
-    const p1=pbf(K,100),p2=pbf(K,150),p3=pbf(K,200);
-    // Val%
-    const cv1=vp(c1,cFLP),cv2=vp(c2,cFLP),cv3=vp(c3,cFLP);
-    const pv1=vp(p1,pFLP),pv2=vp(p2,pFLP),pv3=vp(p3,pFLP);
-    // Filtering
-    const allV=[cv1,cv2,cv3,pv1,pv2,pv3];
-    if(ST.filter==='pass'&&!allV.some(v=>v<=20))return'';
-    if(ST.filter==='ideal'&&!allV.some(v=>v<=12))return'';
-    shown++;
-    const isATM=K===atm;
-    return`<tr class="${isATM?'atm':''}">
-      <td class="flp">${cFLP}</td>
-      ${gc(c1,cv1,'gc100c')}${gc(c2,cv2,'gc150c')}${gc(c3,cv3,'gc200c')}
-      <td class="std">${fmt(K)}${isATM?'<span class="atm-lbl">ATM</span>':''}</td>
-      ${gc(p1,pv1,'gc100p')}${gc(p2,pv2,'gc150p')}${gc(p3,pv3,'gc200p')}
-      <td class="flp r">${pFLP}</td>
-    </tr>`;
-  }).join('');
+  // Build one data row for the given strike & type
+  function buildRow(K,type){
+    const isATM=(K===atm);
+    // OTM: Call OTM = strike > ATM  |  Put OTM = strike < ATM
+    const isOTM=type==='C'?(K>atm):(K<atm);
+    const ltp=type==='C'?getCallLTP(K):getPutLTP(K);
+    const ltpClr=type==='C'?'var(--acc)':'#f59e0b';
 
-  document.getElementById('cb').innerHTML=rows||
-    `<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--t2)">No strikes match the current filter.</td></tr>`;
-  document.getElementById('sc').textContent=shown;
+    // VAL% colour only for OTM; ITM/ATM rows show plain grey
+    const gapCells=[100,150,200].map(gap=>{
+      const rate=type==='C'?cbf(K,gap):pbf(K,gap);
+      const pct=vp(rate,ltp);
+      const valClr=isOTM?vc(pct):'var(--t2)';
+      return `<td class="ect-rate">${rate}</td>`+
+             `<td class="ect-val" style="color:${valClr}">${pct.toFixed(1)}%</td>`;
+    }).join('');
+
+    const bf=type==='C'?cbf(K,g):pbf(K,g);
+    const atmMark=isATM?` <span style="color:var(--acc);font-size:8px;vertical-align:middle">●</span>`:'';
+
+    return `<tr class="${isATM?'ect-atm-row':''}">
+      <td class="ect-ltp" style="color:${ltpClr}">${ltp}</td>
+      <td class="ect-strike" onclick="qAdd('${type}',${K},${g},${bf},${ltp})"
+          title="Click to add ${type} BF at ${fmt(K)}" style="cursor:pointer">
+        ${fmt(K)}${atmMark}
+      </td>
+      ${gapCells}
+    </tr>`;
+  }
+
+  const colgroup=`<colgroup>
+    <col class="c-ltp"><col class="c-strike">
+    <col class="c-data"><col class="c-data"><col class="c-data">
+    <col class="c-data"><col class="c-data"><col class="c-data">
+  </colgroup>`;
+
+  const thead=`<thead>
+    <tr>
+      <th rowspan="2" class="ect-th ect-th-ltp">LTP</th>
+      <th rowspan="2" class="ect-th ect-th-strike">Strike</th>
+      <th colspan="2" class="ect-th ect-th-gap">Gap 100</th>
+      <th colspan="2" class="ect-th ect-th-gap">Gap 150</th>
+      <th colspan="2" class="ect-th ect-th-gap ect-th-gap-box">Gap 200</th>
+    </tr>
+    <tr>
+      <th class="ect-th ect-th-sub">Rate</th>
+      <th class="ect-th ect-th-sub">VAL%</th>
+      <th class="ect-th ect-th-sub">Rate</th>
+      <th class="ect-th ect-th-sub">VAL%</th>
+      <th class="ect-th ect-th-sub">Rate</th>
+      <th class="ect-th ect-th-sub ect-th-sub-last">VAL%</th>
+    </tr>
+  </thead>`;
+
+  document.getElementById('p-exit').innerHTML=`
+<style>
+.ect-info{font-size:11px;font-weight:normal;color:var(--t2);background:var(--s0);border:1px solid var(--b);border-left:3px solid var(--acc);border-radius:5px;padding:8px 11px;margin-bottom:12px;line-height:1.7;}
+.ect-info b{color:var(--t);font-weight:500;}
+.ect-outer{display:flex;gap:14px;overflow-x:auto;align-items:flex-start;}
+.ect-side{flex:1 1 0;min-width:460px;background:var(--s1);border:1px solid var(--b);border-radius:8px;overflow:hidden;}
+.ect-side-hdr{text-align:center;padding:7px 12px;font-size:11px;font-weight:normal;color:var(--t);background:var(--s0);border-bottom:1px solid var(--b);letter-spacing:.02em;}
+.ect-dot-c{color:var(--suc);}
+.ect-dot-p{color:var(--dng);}
+/* ── Excel-style grid: table-layout fixed so columns line up perfectly,
+   every cell gets a full border (top/right/bottom/left) instead of the
+   old mix of border-left/border-bottom which left gaps in the grid. ── */
+.ect-scroll{max-height:560px;overflow-y:auto;overflow-x:hidden;}
+.ect-tbl{width:100%;table-layout:fixed;border-collapse:collapse;font-size:11px;font-weight:normal;}
+.ect-tbl col.c-ltp{width:13%;}
+.ect-tbl col.c-strike{width:15%;}
+.ect-tbl col.c-data{width:12%;}
+.ect-th,.ect-tbl td{border:1px solid var(--b);}
+.ect-th{background:var(--s0);color:var(--t2);font-weight:normal;padding:5px 6px;text-align:center;
+  font-size:10px;white-space:nowrap;letter-spacing:.03em;text-transform:uppercase;
+  position:sticky;top:0;z-index:2;overflow:hidden;text-overflow:ellipsis;}
+.ect-th-ltp{text-align:right;}
+.ect-th-gap-box{color:var(--t);}
+.ect-th-sub-last{}
+.ect-tbl td{padding:5px 6px;text-align:right;vertical-align:middle;font-weight:normal;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ect-tbl tbody tr:nth-child(even) td{background:var(--s0);}
+.ect-tbl tr:hover td{background:var(--s2)!important;}
+.ect-atm-row td{background:rgba(0,110,95,.28)!important;}
+/* frozen first two columns, like Excel's freeze-panes, so LTP/Strike
+   stay visible while the Rate/VAL% columns scroll on narrow screens */
+.ect-ltp,.ect-th-ltp{text-align:right;font-size:11px;position:sticky;left:0;z-index:1;background:var(--s1);}
+.ect-strike,.ect-th-strike{text-align:center;color:var(--t);white-space:nowrap;position:sticky;left:13%;z-index:1;background:var(--s1);}
+.ect-th-ltp,.ect-th-strike{z-index:3;background:var(--s0);}
+.ect-tbl tbody tr:nth-child(even) .ect-ltp,
+.ect-tbl tbody tr:nth-child(even) .ect-strike{background:var(--s0);}
+.ect-atm-row .ect-ltp,.ect-atm-row .ect-strike{background:rgba(0,110,95,.28)!important;}
+.ect-rate{color:var(--t);text-align:right;}
+.ect-val{text-align:right;}
+</style>
+<div class="ect-info">
+  Gap <b>${g} pts</b> &nbsp;·&nbsp; Combo <b>${ST.aCombo.l}</b> &nbsp;·&nbsp; ATM <b>${fmt(atm)}</b>
+  &nbsp;·&nbsp; Wk Strd <b>${ST.sw}</b> &nbsp;·&nbsp; Nxt Wk Strd <b>${ST.snw}</b> &nbsp;·&nbsp; Monthly Strd <b>${ST.sm}</b>
+  &nbsp;·&nbsp; ${FD.connected?'<b style="color:var(--suc)">● Live prices</b>':'Demo (Black-Scholes estimates)'}
+  &nbsp;·&nbsp; Click any strike to add position to tracker.
+</div>
+<div class="ect-outer">
+  <div class="ect-side">
+    <div class="ect-side-hdr"><span class="ect-dot-c">●</span>&nbsp; Call Butterfly (Increasing ↑)</div>
+    <div class="ect-scroll"><table class="ect-tbl">${colgroup}${thead}<tbody>${callStrikes.map(K=>buildRow(K,'C')).join('')}</tbody></table></div>
+  </div>
+  <div class="ect-side">
+    <div class="ect-side-hdr"><span class="ect-dot-p">●</span>&nbsp; Put Butterfly (Decreasing ↓)</div>
+    <div class="ect-scroll"><table class="ect-tbl">${colgroup}${thead}<tbody>${putStrikes.map(K=>buildRow(K,'P')).join('')}</tbody></table></div>
+  </div>
+</div>
+`;
 }
 
-function go(){rHdr();renderTable();}
+// ── CHAIN SIM ─────────────────────────────────────────────────────
+function rCsim(){
+  const cs=ST.cs,evp=vp(cs.dbt,cs.flp),evs=vs(evp);
+  document.getElementById('p-csim').innerHTML=`
+<div class="posform">
+<div class="st" style="margin-top:0">Your trade inputs</div>
+<div class="fr">
+  <div class="fg"><label>Strike (K)</label><input id="cs-s" type="number" value="${cs.str}" step="50" oninput="ST.cs.str=+this.value;rCsimOut()"></div>
+  <div class="fg"><label>Type</label><select onchange="ST.cs.type=this.value;rCsimOut()">
+    <option value="C" ${(cs.type||'C')==='C'?'selected':''}>Call BF</option>
+    <option value="P" ${cs.type==='P'?'selected':''}>Put BF</option></select></div>
+  <div class="fg"><label>Gap (pts)</label><input id="cs-g" type="number" value="${cs.gap}" step="50" oninput="ST.cs.gap=+this.value;rCsimOut()"></div>
+  <div class="fg"><label>Debit paid (₹)</label><input type="number" value="${cs.dbt}" step=".5" oninput="ST.cs.dbt=+this.value;rCsimOut()"></div>
+  <div class="fg"><label>FLP at entry (₹)</label><input type="number" value="${cs.flp}" step=".5" oninput="ST.cs.flp=+this.value;rCsimOut()"></div>
+</div>
+<div style="font-size:11px;margin-top:4px;color:var(--t2)">
+  Entry Value%: <b class="${evs.tc}">${evp.toFixed(1)}%</b>
+  <span class="tag ${evs.c}" style="margin-left:4px">${evs.l}</span>
+  <span style="margin-left:8px">${evp<=20?'✓ Passes Value Concept':'✗ Fails — should not have entered at this debit'}</span>
+</div>
+</div>
+<div id="csim-out"></div>`;
+  rCsimOut();
+}
+function rCsimOut(){
+  const cs=ST.cs,el=document.getElementById('csim-out');if(!el)return;
+  const type=cs.type||'C';
+  function srow(mv){
+    const ns=ST.aSpot+mv;
+    const dvix=mv<0?Math.abs(mv/ST.aSpot)*75:-mv/ST.aSpot*45;
+    const nvix=Math.max(8,ST.aVix+dvix);
+    const nst=ST.aStrd*(nvix/ST.aVix)*(ns/ST.aSpot);
+    const nv=ivol(ns,nst,ST.dte);
+    let nbf;
+    if(type==='C')nbf=Math.max(.5,r1(bsc(ns,cs.str,ST.T,nv)-2*bsc(ns,cs.str+cs.gap,ST.T,nv)+bsc(ns,cs.str+2*cs.gap,ST.T,nv)));
+    else nbf=Math.max(.5,r1(bsp(ns,cs.str,ST.T,nv)-2*bsp(ns,cs.str-cs.gap,ST.T,nv)+bsp(ns,cs.str-2*cs.gap,ST.T,nv)));
+    const nflp=r1(type==='C'?bsc(ns,cs.str,ST.T,nv):bsp(ns,cs.str,ST.T,nv));
+    const hp=vp(cs.dbt,nflp),pnl=r1(nbf-cs.dbt);
+    const istate=type==='C'?(cs.str<ns?'ITM':cs.str>ns+cs.gap*2?'OTM':'Near ATM'):(cs.str>ns?'ITM':cs.str<ns-cs.gap*2?'OTM':'Near ATM');
+    const scls=istate==='ITM'?'tm':istate==='OTM'?'to':'ta';
+    let act='';
+    if(istate==='ITM'&&Math.abs(mv)>100)act=`<span class="fail">Exit — deep ITM</span>`;
+    else if(hp>25)act=`<span class="fail">Exit — value breach</span>`;
+    else if(hp>20)act=`<span class="warn">Review now</span>`;
+    else if(pnl>cs.dbt*.8)act=`<span class="pass">Book profit</span>`;
+    else act=`<span class="pass">Hold</span>`;
+    return`<tr ${mv===0?'class="hl"':''}>
+      <td>${mv===0?'Current':mv>0?'+'+mv:mv}</td>
+      <td>${fmt(ns)}</td>
+      <td><span class="tag ${scls}">${istate}</span></td>
+      <td>${r2(nvix)} (${nvix>ST.aVix?'+':''}${r2(nvix-ST.aVix)})</td>
+      <td>${nbf}</td><td>${nflp}</td>
+      <td class="${hp>25?'fail':hp>20?'warn':'pass'}">${hp.toFixed(1)}%</td>
+      <td style="color:${pnl>=0?'var(--suc)':'var(--dng)'};font-weight:600">${pnl>=0?'+':''}${pnl}</td>
+      <td style="font-size:11px">${act}</td>
+    </tr>`;
+  }
+  el.innerHTML=`<div class="st">Scenario matrix</div>
+<div class="scrollx"><table class="tbl">
+<thead><tr><th>Move</th><th>NIFTY</th><th>Position</th><th>Est. VIX</th><th>BF value</th><th>New FLP</th><th>Hold%</th><th>P&L/lot</th><th>Decision</th></tr></thead>
+<tbody>${[-200,-150,-100,-50,0,50,100,150,200].map(srow).join('')}</tbody>
+</table></div>
+<div class="ib"><b>Hold% = Old Debit ÷ New FLP.</b> &gt;20%: exit and re-enter at closer ATM strike. &gt;25%: immediate exit. VIX rises on market falls — BF values drop but this is a scaling opportunity, not a panic signal. P&amp;L is per-lot from your entry debit.</div>`;
+}
 
-// ══ CLOCK ════════════════════════════════════════════════════════
+// ── PAYOFF SVG ────────────────────────────────────────────────────
+function payoffSVG(K,g,dbt,type){
+  const W=380,H=120,PL=38,PR=12,PT=20,PB=24;
+  const pw=W-PL-PR,ph=H-PT-PB;
+  const maxP=g-dbt,minP=-dbt,rng=maxP-minP;
+  const xMin=type==='C'?K-g:K-3*g,xMax=type==='C'?K+3*g:K+g;
+  function pnl(S){
+    if(type==='C')return Math.max(0,S-K)-2*Math.max(0,S-K-g)+Math.max(0,S-K-2*g)-dbt;
+    return Math.max(0,K-S)-2*Math.max(0,K-g-S)+Math.max(0,K-2*g-S)-dbt;
+  }
+  function tx(s){return PL+(s-xMin)/(xMax-xMin)*pw;}
+  function ty(p){return PT+(1-(p-minP)/rng)*ph;}
+  const N=300,pts=[];
+  for(let i=0;i<=N;i++){const s=xMin+i*(xMax-xMin)/N;pts.push(`${tx(s).toFixed(1)},${ty(pnl(s)).toFixed(1)}`);}
+  const zy=ty(0).toFixed(1);
+  const beL=type==='C'?K+dbt:K-dbt,beR=type==='C'?K+2*g-dbt:K-2*g+dbt;
+  const midX=(type==='C'?tx(K+g):tx(K-g)).toFixed(1);
+  const fps=[];
+  for(let i=0;i<=N;i++){const s=xMin+i*(xMax-xMin)/N;if(s>=Math.min(beL,beR)&&s<=Math.max(beL,beR))fps.push(`${tx(s).toFixed(1)},${ty(pnl(s)).toFixed(1)}`);}
+  const lK=type==='C'?K:K-2*g,mK=type==='C'?K+g:K-g,rK=type==='C'?K+2*g:K;
+  return`<svg viewBox="0 0 ${W} ${H}" class="paysvg">
+<text x="${W/2}" y="13" text-anchor="middle" font-size="9" fill="#888">${type==='C'?'Call':'Put'} BF payoff at expiry · Strike=${fmt(K)} · Gap=${g} · Debit=₹${dbt}</text>
+<line x1="${PL}" y1="${PT}" x2="${PL}" y2="${H-PB+3}" stroke="#333" stroke-width=".8"/>
+<line x1="${PL}" y1="${H-PB}" x2="${W-PR}" y2="${H-PB}" stroke="#333" stroke-width=".8"/>
+<line x1="${PL}" y1="${zy}" x2="${W-PR}" y2="${zy}" stroke="#444" stroke-dasharray="4,3" stroke-width="1"/>
+${fps.length>2?`<path d="M${fps[0]} ${fps.slice(1).join(' ')} L${tx(Math.max(beL,beR)).toFixed(1)},${zy} L${tx(Math.min(beL,beR)).toFixed(1)},${zy}Z" fill="rgba(34,197,94,.2)"/>`:''}
+<polyline points="${pts.join(' ')}" fill="none" stroke="#3b82f6" stroke-width="2"/>
+<circle cx="${midX}" cy="${ty(maxP).toFixed(1)}" r="4" fill="#22c55e"/>
+<text x="${midX}" y="${(ty(maxP)-9).toFixed(1)}" text-anchor="middle" font-size="10" fill="#22c55e" font-weight="600">+${r1(maxP)} pts</text>
+<text x="${(PL-3).toFixed(1)}" y="${(ty(maxP)+4).toFixed(1)}" text-anchor="end" font-size="8" fill="#22c55e">+${r1(maxP)}</text>
+<text x="${(PL-3).toFixed(1)}" y="${(ty(0)+4).toFixed(1)}" text-anchor="end" font-size="8" fill="#666">0</text>
+<text x="${(PL-3).toFixed(1)}" y="${(ty(minP)+4).toFixed(1)}" text-anchor="end" font-size="8" fill="#ef4444">${r1(minP)}</text>
+<text x="${tx(lK).toFixed(1)}" y="${(H-PB+14).toFixed(1)}" text-anchor="middle" font-size="8" fill="#666">${fmt(lK)}</text>
+<text x="${midX}" y="${(H-PB+14).toFixed(1)}" text-anchor="middle" font-size="8" fill="#3b82f6">${fmt(mK)}★</text>
+<text x="${tx(rK).toFixed(1)}" y="${(H-PB+14).toFixed(1)}" text-anchor="middle" font-size="8" fill="#666">${fmt(rK)}</text>
+</svg>`;
+}
+
+// ── POSITIONS ─────────────────────────────────────────────────────
+function qAdd(type,K,g,bf,flp){
+  ST.pendingAdd={type,K,gap:g,dbt:bf,flp};
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.pnl').forEach(p=>p.classList.remove('on'));
+  // Find the Positions tab by its onclick content instead of a brittle hardcoded index
+  const posTab=[...document.querySelectorAll('.tab')].find(t=>(t.getAttribute('onclick')||'').includes("'pos'"));
+  if(posTab)posTab.classList.add('active');
+  document.getElementById('p-pos').classList.add('on');
+  curTab='pos';rPos();
+}
+function rPos(){
+  const pa=ST.pendingAdd;
+  const posRows=ST.positions.map(p=>{
+    const cBF=p.type==='C'?cbf(p.K,p.gap):pbf(p.K,p.gap);
+    const cFLP=p.type==='C'?getCallLTP(p.K):getPutLTP(p.K);
+    const hp=vp(p.dbt,cFLP);
+    const pnlPt=r1((cBF-p.dbt)*p.lots);
+    const pnlRs=Math.round(pnlPt*ST.lotSize);
+    const m=mn(p.K,p.type);
+    const hst=hp>25?'fail':hp>20?'warn':'pass';
+    let sig='';
+    if(m==='ITM'&&hp>15)sig=`<span class="fail">Exit — ITM</span>`;
+    else if(hp>25)sig=`<span class="fail">Exit — value breach</span>`;
+    else if(hp>20)sig=`<span class="warn">Review</span>`;
+    else if(pnlPt>p.dbt*p.lots*.75)sig=`<span class="pass">Book profit</span>`;
+    else sig=`<span class="pass">Hold</span>`;
+    const isSel=ST.selPosId===p.id;
+    return`<tr ${isSel?'class="hl"':''}>
+<td><b>${fmt(p.K)}</b></td><td>${p.type}</td>
+<td><span class="tag ${mc(m)}">${m}</span></td>
+<td>${p.gap}</td><td>${p.combo}</td><td>${p.expiry}</td><td>${p.lots}</td>
+<td>${p.dbt}</td><td>${p.flp}</td>
+<td><b>${cBF}</b></td><td>${r1(cFLP)}</td>
+<td class="${hst}">${hp.toFixed(1)}%</td>
+<td style="color:${pnlRs>=0?'var(--suc)':'var(--dng)'};font-weight:600">${pnlRs>=0?'+':''}₹${Math.abs(pnlRs).toLocaleString('en-IN')}</td>
+<td>${sig}</td>
+<td><button class="btn btn-b" onclick="ST.selPosId=${p.id};rPos()">📊</button></td>
+<td><button class="btn btn-r" onclick="delPos(${p.id})">✕</button></td>
+</tr>`;
+  }).join('');
+
+  const totPnl=ST.positions.reduce((acc,p)=>{
+    const cBF=p.type==='C'?cbf(p.K,p.gap):pbf(p.K,p.gap);
+    return acc+r1((cBF-p.dbt)*p.lots)*ST.lotSize;
+  },0);
+  const totLots=ST.positions.reduce((a,p)=>a+p.lots,0);
+  const selP=ST.selPosId?ST.positions.find(p=>p.id===ST.selPosId):ST.positions[0];
+
+  document.getElementById('p-pos').innerHTML=`
+<div class="posform">
+${pa?`<div class="tag tw" style="display:inline-block;margin-bottom:8px">⚡ Pre-filled — ${pa.type==='C'?'Call':'Put'} BF · Strike ${fmt(pa.K)}</div>`:''}
+<div class="st" style="margin-top:0">Add position</div>
+<div class="fr">
+  <div class="fg"><label>Type</label><select id="af-tp"><option value="C" ${pa?.type==='C'?'selected':''}>Call BF</option><option value="P" ${pa?.type==='P'?'selected':''}>Put BF</option></select></div>
+  <div class="fg"><label>Strike K</label><input id="af-K" type="number" value="${pa?pa.K:Math.round(ST.aSpot/50)*50}" step="50"></div>
+  <div class="fg"><label>Gap (pts)</label><input id="af-g" type="number" value="${pa?pa.gap:ST.aGap}" step="50"></div>
+  <div class="fg"><label>Combo</label><select id="af-cb">
+    <option value="1:2">1:2</option>
+    <option value="2:3" ${ST.aCombo.l==='2:3'?'selected':''}>2:3</option>
+    <option value="3:4" ${ST.aCombo.l==='3:4'?'selected':''}>3:4</option>
+  </select></div>
+  <div class="fg"><label>Buy lots</label><input id="af-l" type="number" value="2" min="1"></div>
+  <div class="fg"><label>Entry debit/lot (₹)</label><input id="af-d" type="number" value="${pa?pa.dbt:''}" step=".5" placeholder="e.g. 14.0"></div>
+  <div class="fg"><label>Entry FLP (₹)</label><input id="af-f" type="number" value="${pa?pa.flp:''}" step=".5" placeholder="e.g. 110.0"></div>
+  <div class="fg"><label>Expiry label</label><input id="af-ex" type="text" value="${FD.expiries[FD.selExp]||'Weekly'}" placeholder="Weekly"></div>
+</div>
+<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+  <button class="btn btn-p" onclick="addPos()">+ Add to tracker</button>
+  <span style="font-size:11px;color:var(--t2)">Lot size:
+    <input type="number" value="${ST.lotSize}" style="width:55px;padding:3px 5px;background:var(--s2);border:1px solid var(--b);border-radius:4px;color:var(--t);font-size:11px" oninput="ST.lotSize=+this.value;rPos()">
+  </span>
+</div>
+</div>
+
+<div class="st">Open positions ${ST.positions.length?`(${ST.positions.length})`:''}</div>
+${ST.positions.length===0
+  ?`<div class="ib">No positions yet. Use the <b>Option Chain</b> or <b>Exit Tool</b> tabs to find trades that pass the Value Concept, then click <b>+C</b> or <b>+P</b> to add them here.</div>`
+  :`<div class="scrollx">
+<table class="tbl">
+<thead><tr><th>Strike</th><th>Type</th><th>Moneyness</th><th>Gap</th><th>Combo</th><th>Expiry</th><th>Lots</th><th>Entry₹</th><th>Ent FLP</th><th>Cur BF</th><th>Cur FLP</th><th>Hold%</th><th>P&L</th><th>Signal</th><th>📊</th><th>✕</th></tr></thead>
+<tbody>${posRows}</tbody>
+</table></div>
+<div class="st">Portfolio</div>
+<div class="cards">
+  <div class="card ${totPnl>=0?'green':'red'}"><div class="cl">Total P&L</div>
+    <div class="cv" style="font-size:16px">${totPnl>=0?'+':''}₹${Math.abs(Math.round(totPnl)).toLocaleString('en-IN')}</div>
+    <div class="cs">${ST.positions.length} position${ST.positions.length!==1?'s':''} · ${totLots} buy lots</div></div>
+  <div class="card blue"><div class="cl">Lot size</div><div class="cv">${ST.lotSize}</div><div class="cs">₹ per point per lot</div></div>
+  <div class="card ${FD.connected?'green':'amber'}"><div class="cl">Prices</div>
+    <div class="cv" style="font-size:13px">${FD.connected?'● Live':'◉ Demo'}</div>
+    <div class="cs">${FD.connected?`Updated ${FD.lastUpdated?.toLocaleTimeString('en-IN')||''}`:' Black-Scholes estimates'}</div></div>
+</div>`}
+
+${selP?`<div class="st">Payoff at expiry — ${selP.type==='C'?'Call':'Put'} BF at ${fmt(selP.K)} (click 📊 on any row to switch)</div>
+${payoffSVG(selP.K,selP.gap,selP.dbt,selP.type)}
+<div style="font-size:11px;color:var(--t2);margin-top:6px">
+  Max profit: <b class="pass">+${r1(selP.gap-selP.dbt)} pts = +₹${Math.round(r1(selP.gap-selP.dbt)*selP.lots*ST.lotSize).toLocaleString('en-IN')}</b>
+  at NIFTY = ${fmt(selP.type==='C'?selP.K+selP.gap:selP.K-selP.gap)} &nbsp;·&nbsp;
+  Max loss: <b class="fail">−${r1(selP.dbt)} pts = −₹${Math.round(selP.dbt*selP.lots*ST.lotSize).toLocaleString('en-IN')}</b>
+  outside break-evens &nbsp;·&nbsp; ★ = peak profit strike
+</div>`:``}
+<div class="ib"><b>Hold% = Old Debit ÷ Current FLP.</b> &gt;20% → exit and re-enter at closer ATM. &gt;25% → immediate exit. When market moves and VIX rises, BF values temporarily drop — this is a scaling opportunity on the opposite side, not a reason to panic-exit existing positions.</div>`;
+  ST.pendingAdd=null;
+}
+function addPos(){
+  const K=+document.getElementById('af-K').value;
+  const dbt=+document.getElementById('af-d').value;
+  const flp=+document.getElementById('af-f').value;
+  if(!K||!dbt||!flp){alert('Please fill in Strike, Entry Debit, and Entry FLP.');return;}
+  const pos={
+    id:ST.nextId++,
+    type:document.getElementById('af-tp').value,
+    K,gap:+document.getElementById('af-g').value,
+    combo:document.getElementById('af-cb').value,
+    lots:+document.getElementById('af-l').value||1,
+    dbt,flp,
+    expiry:document.getElementById('af-ex').value||'Weekly',
+  };
+  ST.positions.push(pos);
+  if(!ST.selPosId)ST.selPosId=pos.id;
+  rPos();
+}
+function delPos(id){
+  ST.positions=ST.positions.filter(p=>p.id!==id);
+  if(ST.selPosId===id)ST.selPosId=ST.positions[0]?.id||null;
+  rPos();
+}
+
+// ── RISK ──────────────────────────────────────────────────────────
+function rRsk(){
+  document.getElementById('p-rsk').innerHTML=`
+<div id="rsk-out"></div>
+<div class="div"></div>
+<div class="st">Configure limits</div>
+<div class="fr">
+  <div class="fg"><label>Daily loss limit (₹)</label><input type="number" value="${ST.rsk.dlim}" step="1000" oninput="ST.rsk.dlim=+this.value;rRskOut()"></div>
+  <div class="fg"><label>Weekly loss limit (₹)</label><input type="number" value="${ST.rsk.wlim}" step="1000" oninput="ST.rsk.wlim=+this.value;rRskOut()"></div>
+  <div class="fg"><label>Max delta (abs)</label><input type="number" value="${ST.rsk.mdt}" oninput="ST.rsk.mdt=+this.value;rRskOut()"></div>
+  <div class="fg"><label>Max vega (abs)</label><input type="number" value="${ST.rsk.mvg}" oninput="ST.rsk.mvg=+this.value;rRskOut()"></div>
+</div>
+<div class="st">Update current P&L and Greeks</div>
+<div class="fr">
+  <div class="fg"><label>Daily P&L (₹)</label><input type="number" value="${ST.rsk.dpnl}" step="100" oninput="ST.rsk.dpnl=+this.value;rRskOut()"></div>
+  <div class="fg"><label>Weekly P&L (₹)</label><input type="number" value="${ST.rsk.wpnl}" step="100" oninput="ST.rsk.wpnl=+this.value;rRskOut()"></div>
+  <div class="fg"><label>Net delta</label><input type="number" value="${ST.rsk.dlta}" oninput="ST.rsk.dlta=+this.value;rRskOut()"></div>
+  <div class="fg"><label>Net vega</label><input type="number" value="${ST.rsk.vga}" oninput="ST.rsk.vga=+this.value;rRskOut()"></div>
+</div>
+<div class="ib">Strategy is <b>positive theta + negative vega</b>. Delta &amp; gamma are auto-controlled by the butterfly structure via the Value Concept. Vega (VIX) is the only active daily risk. When VIX spikes → scale butterfly positions at cheap rates. When VIX collapses → all positions profit together. Correlation risk: if holding multiple short-vega positions, track <b>net portfolio vega</b>, not per-position.</div>`;
+  rRskOut();
+}
+function rRskOut(){
+  const r=ST.rsk,el=document.getElementById('rsk-out');if(!el)return;
+  function pnlPct(v,lim){return v<0?Math.min(100,Math.abs(v)/Math.abs(lim)*100):0;}
+  function gkPct(v,mx){return Math.min(100,Math.abs(v)/mx*100);}
+  function gc(p){return p>80?'r':p>50?'a':'g';}
+  function gRow(lbl,fill,val,note){
+    const cl=gc(fill);
+    const vc=cl==='g'?'var(--suc)':cl==='a'?'var(--wrn)':'var(--dng)';
+    return`<div class="grw">
+      <div class="grl">${lbl}</div>
+      <div class="grt"><div class="grf ${cl}" style="width:${fill.toFixed(0)}%"></div></div>
+      <div class="grv" style="color:${vc}">${val}</div>
+    </div>
+    <div class="gnote">${note} — <b>${fill.toFixed(0)}% of limit used</b></div>`;
+  }
+  const dp=pnlPct(r.dpnl,r.dlim),wp=pnlPct(r.wpnl,r.wlim);
+  const dtp=gkPct(r.dlta,r.mdt),vgp=gkPct(r.vga,r.mvg);
+  el.innerHTML=`<div class="st" style="margin-top:0">P&L vs loss limits</div>
+${gRow('Daily P&L',dp,(r.dpnl>=0?'+':'')+'₹'+Math.abs(r.dpnl).toLocaleString('en-IN'),`Limit ₹${Math.abs(r.dlim).toLocaleString('en-IN')}${r.dpnl>=0?' (in profit — 0% of limit used)':''}`)}
+${gRow('Weekly P&L',wp,(r.wpnl>=0?'+':'')+'₹'+Math.abs(r.wpnl).toLocaleString('en-IN'),`Limit ₹${Math.abs(r.wlim).toLocaleString('en-IN')}${r.wpnl>=0?' (in profit)':''}`)}
+<div class="st">Greeks exposure</div>
+${gRow('Net delta',dtp,(r.dlta>=0?'+':'')+r.dlta,`Max ±${r.mdt} — auto-controlled by Value Concept butterfly structure`)}
+${gRow('Net vega',vgp,r.vga,`Target: negative vega (short vol). Max abs: ${r.mvg}. VIX rise hurts short-term but creates scaling opportunity.`)}
+<div class="st">Status cards</div>
+<div class="cards">
+  <div class="card ${dp>80?'red':dp>50?'amber':'green'}">
+    <div class="cl">Daily limit</div>
+    <div class="cv" style="font-size:14px">${dp>80?'⚠ Critical':dp>50?'⚡ Warning':'✓ Safe'}</div>
+    <div class="cs">${dp.toFixed(0)}% used</div></div>
+  <div class="card ${vgp>80?'red':vgp>50?'amber':'green'}">
+    <div class="cl">Vega exposure</div>
+    <div class="cv" style="font-size:14px">${vgp>80?'⚠ High':vgp>50?'⚡ Scale limit':'✓ Normal'}</div>
+    <div class="cs">${vgp.toFixed(0)}% of max</div></div>
+  <div class="card ${FD.connected?'green':'amber'}">
+    <div class="cl">Data mode</div>
+    <div class="cv" style="font-size:13px">${FD.connected?'● Live':'◉ Demo'}</div>
+    <div class="cs">${FD.connected?`Updated ${FD.lastUpdated?.toLocaleTimeString('en-IN')||''}`:' BS estimates'}</div></div>
+  <div class="card">
+    <div class="cl">VIX</div>
+    <div class="cv">${ST.aVix.toFixed?ST.aVix.toFixed(2):ST.aVix}</div>
+    <div class="cs">${ST.aVix>16?'Scale zone active':ST.aVix<10?'Very low — back ratio?':'Normal range'}</div></div>
+</div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 8. TABS + CLOCK
+// ═══════════════════════════════════════════════════════════════════
+const rfns={exit:rExit,csim:rCsim,pos:rPos,rsk:rRsk};
+let curTab='exit';
+function doTab(id,btn){
+  document.querySelectorAll('.pnl').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('p-'+id).classList.add('on');
+  btn.classList.add('active');
+  curTab=id;rfns[id]();
+}
+function renderCur(){if(rfns[curTab])rfns[curTab]();}
+
+// Close the connect popover when clicking elsewhere on the page
+document.addEventListener('click',(e)=>{
+  if(HC.open&&!e.target.closest('#hc-wrap'))toggleHcPop(false);
+});
+
 function tick(){
   const i=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));
   const p=x=>String(x).padStart(2,'0');
@@ -474,11 +1262,11 @@ function tick(){
 }
 setInterval(tick,1000);tick();
 
-// ══ INIT ═════════════════════════════════════════════════════════
-if(ST.clientId)document.getElementById('ci-id').value=ST.clientId;
-if(ST.accessToken)document.getElementById('ci-tok').value=ST.accessToken;
-if(ST.proxyUrl)document.getElementById('ci-px').value=ST.proxyUrl;
-go();
+// ═══════════════════════════════════════════════════════════════════
+// 9. INIT
+// ═══════════════════════════════════════════════════════════════════
+rHdr();rExit();
+checkBrokerStatus();  // pick up an already-connected backend session on reload
 </script>
 </body>
 </html>
