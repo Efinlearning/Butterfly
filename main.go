@@ -25,6 +25,12 @@ import (
 	"time"
 )
 
+// FYERS splits its endpoints across two hosts:
+//   - api-t1.fyers.in — the interactive login/authorize page (generate-authcode).
+//     Hitting this with the plain API host instead returns a JSON 500
+//     "Invalid Request, please provide valid method" error.
+//   - api.fyers.in     — the pure REST/JSON API (token exchange, quotes, option chain).
+const fyersAuthHost = "https://api-t1.fyers.in/api/v3"
 const fyersBase = "https://api.fyers.in/api/v3"
 
 var (
@@ -187,7 +193,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	q.Set("response_type", "code")
 	q.Set("state", state)
 
-	authURL := fyersBase + "/generate-authcode?" + q.Encode()
+	authURL := fyersAuthHost + "/generate-authcode?" + q.Encode()
 	http.Redirect(w, r, authURL, http.StatusFound)
 }
 
