@@ -7,6 +7,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
@@ -84,7 +85,45 @@ func (s *tokenStore) checkState(state string) bool {
 	return state != "" && state == s.state
 }
 
+// ── Minimal .env loader (no dependencies). Reads KEY=VALUE lines from a
+// .env file in the working directory and sets them as process env vars,
+// without overriding any var that's already set (so real environment
+// variables — e.g. ones set in Render's dashboard — always win). ──
+func loadDotEnv(path string) {
+	f, err := os.Open(path)
+	if err != nil {
+		return // no .env file present — that's fine, fall back to real env vars
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		eq := strings.Index(line, "=")
+		if eq < 0 {
+			continue
+		}
+		key := strings.TrimSpace(line[:eq])
+		val := strings.TrimSpace(line[eq+1:])
+		// Strip surrounding quotes, if any: KEY="value" or KEY='value'
+		if len(val) >= 2 && (val[0] == '"' && val[len(val)-1] == '"' || val[0] == '\'' && val[len(val)-1] == '\'') {
+			val = val[1 : len(val)-1]
+		}
+		if key == "" {
+			continue
+		}
+		if _, already := os.LookupEnv(key); !already {
+			os.Setenv(key, val)
+		}
+	}
+}
+
 func main() {
+	loadDotEnv(".env")
+
 	fyersAppID = os.Getenv("FYERS_APP_ID")
 	fyersSecretID = os.Getenv("FYERS_SECRET_ID")
 	publicURL = strings.TrimRight(os.Getenv("PUBLIC_URL"), "/")
