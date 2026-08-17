@@ -25,11 +25,14 @@ import (
 	"time"
 )
 
-// FYERS splits its endpoints across two hosts:
-//   - api-t1.fyers.in — the interactive login/authorize page (generate-authcode).
-//     Hitting this with the plain API host instead returns a JSON 500
-//     "Invalid Request, please provide valid method" error.
-//   - api.fyers.in     — the pure REST/JSON API (token exchange, quotes, option chain).
+// FYERS v3 splits its endpoints across two hosts:
+//   - api-t1.fyers.in — the entire auth flow: the interactive login page
+//     (generate-authcode) AND the token exchange (validate-authcode /
+//     validate-refresh-token). Hitting these on the plain api.fyers.in host
+//     instead returns a JSON 500 "Invalid Request, please provide valid
+//     method" error.
+//   - api.fyers.in     — the data/trading REST API (quotes, option chain,
+//     orders, etc.) once you already have an access token.
 const fyersAuthHost = "https://api-t1.fyers.in/api/v3"
 const fyersBase = "https://api.fyers.in/api/v3"
 
@@ -237,7 +240,7 @@ func handleCallback(w http.ResponseWriter, r *http.Request) {
 		"code":       authCode,
 	})
 
-	req, err := http.NewRequest(http.MethodPost, fyersBase+"/validate-authcode", bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, fyersAuthHost+"/validate-authcode", bytes.NewReader(body))
 	if err != nil {
 		closeWith("BROKER_AUTH_ERROR", err.Error(), "")
 		return
