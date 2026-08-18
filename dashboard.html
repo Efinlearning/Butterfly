@@ -58,6 +58,10 @@ a{color:var(--acc)}
 .hm{display:flex;flex-direction:column;padding:3px 8px;border:1px solid var(--b);border-radius:5px;min-width:72px}
 .hm .hl{font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.05em}
 .hm .hv{font-size:13px;font-weight:500}
+.h-exp-sel{background:transparent;border:none;color:var(--t);font-size:12px;font-weight:500;
+  font-family:var(--f);padding:0;margin:0;cursor:pointer;max-width:120px;}
+.h-exp-sel:focus{outline:none;}
+.h-exp-sel option{background:var(--s1);color:var(--t);}
 .badge{padding:2px 9px;border-radius:20px;font-size:10px;font-weight:600}
 .live{background:var(--bgs);color:var(--suc);border:1px solid var(--bs)}
 .demo{background:var(--bgw);color:var(--wrn);border:1px solid var(--bw)}
@@ -168,6 +172,9 @@ code{background:var(--s2);padding:1px 5px;border-radius:3px;font-size:11px;font-
 <!-- ─── HEADER ─────────────────────────────────────────────────── -->
 <div id="hbar">
   <div class="hm"><span class="hl">NIFTY 50</span><span class="hv" id="h-sp">–</span></div>
+  <div class="hm"><span class="hl">Expiry</span>
+    <select id="h-exp" class="h-exp-sel" onchange="onExpiryChange(this.value)"><option>–</option></select>
+  </div>
   <div class="hm"><span class="hl">India VIX</span><span class="hv" id="h-vx">–</span></div>
   <div class="hm"><span class="hl">ATM Straddle</span><span class="hv" id="h-st">–</span></div>
   <div class="hm"><span class="hl">Nxt Wk Strd</span><span class="hv" id="h-snw">–</span></div>
@@ -259,7 +266,7 @@ function calcDTE(expStr){
 // ═══════════════════════════════════════════════════════════════════
 const FD={
   connected:false,loading:false,error:null,lastUpdated:null,wsConnected:false,
-  spot:null,vix:null,expiries:[],selExp:0,
+  spot:null,vix:null,expiries:[],expTs:[],selExp:0,
   chain:[],atm:null,straddle:null,pcr:null,maxPain:null,
   chg:null,chgP:null,open:null,high:null,low:null,
   vixChg:null,vixChgP:null,
@@ -295,10 +302,9 @@ const ST={
 //    directly. The backend holds the access token and injects it.
 // ═══════════════════════════════════════════════════════════════════
 // ⚠️ EDIT THIS to your deployed backend's URL (no trailing slash):
-const BACKEND_URL='https://butterfly-kzpf.onrender.com';
+const BACKEND_URL='https://your-service.onrender.com';
 
 const API={
-  get BASE(){return `${BACKEND_URL}/api/fyers`;},
   async get(path,retries=2){
     const ctrl=new AbortController();
     const tid=setTimeout(()=>ctrl.abort(),12000);  // 12-second timeout
@@ -324,9 +330,13 @@ const API={
     const s=Array.isArray(syms)?syms.join(','):syms;
     return this.get(`/api/quotes?symbols=${encodeURIComponent(s)}`);
   },
-  optionChain(sym='NSE:NIFTY50-INDEX'){
-    // 25 strikes each side gives comfortable coverage for Exit Tool (±500 pts)
-    return this.get(`/api/option-chain?symbol=${encodeURIComponent(sym)}&strikecount=25`);
+  // timestamp: epoch-seconds for a specific expiry, omit for the nearest/current one.
+  // strikecount: 25 gives comfortable coverage for the main table (±500 pts);
+  // aux straddle-only fetches use a smaller count since they just need the ATM row.
+  optionChain(sym='NSE:NIFTY50-INDEX',timestamp=null,strikecount=25){
+    let p=`/api/option-chain?symbol=${encodeURIComponent(sym)}&strikecount=${strikecount}`;
+    if(timestamp)p+=`&timestamp=${encodeURIComponent(timestamp)}`;
+    return this.get(p);
   },
 };
 
@@ -335,13 +345,24 @@ async function fetchAll(){
   FD.loading=true;FD.error=null;
   rHdr();
   try{
-    const [qd,od]=await Promise.all([
-      API.quotes(['NSE:NIFTY50-INDEX','NSE:INDIAVIX-INDEX']),
-      API.optionChain(),
-    ]);
+    const qd=await API.quotes(['NSE:NIFTY50-INDEX','NSE:INDIAVIX-INDEX']);
     parseQuotes(qd);
+
+    // Primary chain: whichever expiry is currently selected (drives the
+    // main option-chain table, ATM straddle, PCR, and Max Pain).
+    const selTs=FD.expTs&&FD.expTs[FD.selExp];
+    const od=await API.optionChain('NSE:NIFTY50-INDEX',selTs);
     parseOC(od);
     FD.connected=true;FD.lastUpdated=new Date();
+
+    // Aux fetches for the header's "Nxt Wk Strd" / "Monthly Strd" figures —
+    // only refreshed while browsing the nearest expiry, to avoid firing 2
+    // extra option-chain calls on every refresh while looking at another one.
+    if(FD.selExp===0&&FD.expTs&&FD.expTs.length>1){
+      fetchAuxStraddle(1,'snw').catch(()=>{});
+      const mIdx=FD.expiries.findIndex((label,i)=>i>=2&&calcDTE(label)>=20);
+      if(mIdx>=0)fetchAuxStraddle(mIdx,'sm').catch(()=>{});
+    }
   }catch(e){
     FD.error=e.message;
     // Fallback: try quotes only
@@ -361,6 +382,22 @@ async function doRefresh(){
   await fetchAll();
 }
 
+// Lightweight fetch used only to derive the ATM straddle for an expiry
+// OTHER than the one currently selected/displayed (next-week / monthly
+// header figures) — small strikecount since we only need the ATM row,
+// and it never touches FD.chain/FD.expiries (those belong to the
+// primary/selected expiry only).
+async function fetchAuxStraddle(idx,key){
+  if(!FD.expTs||FD.expTs[idx]==null)return;
+  const od=await API.optionChain('NSE:NIFTY50-INDEX',FD.expTs[idx],5);
+  const{chain,spot}=groupOptionsChain(od.data&&od.data.optionsChain||[]);
+  const sp=spot||FD.spot;
+  if(!chain.length||!sp)return;
+  const atm=chain.reduce((a,b)=>Math.abs(b.strike-sp)<Math.abs(a.strike-sp)?b:a);
+  const strd=r1((atm.call.ltp||0)+(atm.put.ltp||0));
+  if(strd>0){ST[key]=strd;rHdr();}
+}
+
 // Ask the backend whether it already holds a live token (e.g. page reload
 // after connecting earlier today) — equivalent to checkBrokerStatus() in
 // FyersAuth.tsx.
@@ -378,7 +415,7 @@ async function checkBrokerStatus(){
 
 function doDisconnect(){
   FD.connected=false;FD.chain=[];FD.spot=null;FD.vix=null;
-  FD.straddle=null;FD.pcr=null;FD.maxPain=null;
+  FD.straddle=null;FD.pcr=null;FD.maxPain=null;FD.expiries=[];FD.expTs=[];
   if(ST.autoRId){clearInterval(ST.autoRId);ST.autoRId=null;}
   WSF.disconnect();  // Stop real-time WebSocket feed
   if(BACKEND_URL&&!BACKEND_URL.includes('your-service')){
@@ -425,80 +462,88 @@ function parseQuotes(data){
   }
 }
 
+// Groups FYERS's flat options-chain-v3 `optionsChain` array (each row is
+// ONE leg — call or put — tagged by `option_type`, all sharing the same
+// `strike_price`; plus one "index" row for the underlying with no
+// strike/option_type) into {strike, call, put} rows keyed by strike.
+// This is the actual v3 response shape (confirmed against FYERS's own
+// Python SDK + published field structs) — earlier versions of this file
+// assumed a nested callOptions/putOptions-per-strike shape that FYERS v3
+// doesn't use, which is why the chain silently came back empty.
+function groupOptionsChain(flatArr){
+  const rows={};
+  let spot=null;
+  for(const o of(flatArr||[])){
+    const K=+o.strike_price||0;
+    const ot=(o.option_type||'').toUpperCase();
+    if(K===0||!ot){
+      // The underlying/index row — no strike, no option_type.
+      const l=gf(o,'ltp','last_price');
+      if(l)spot=l;
+      continue;
+    }
+    if(!rows[K])rows[K]={strike:K,call:{ltp:0,oi:0,oiChg:0,vol:0,iv:0,delta:0,gamma:0,theta:0,vega:0,bid:0,ask:0},
+                          put:{ltp:0,oi:0,oiChg:0,vol:0,iv:0,delta:0,gamma:0,theta:0,vega:0,bid:0,ask:0}};
+    const parsed={
+      ltp:gf(o,'ltp','last_price'),
+      oi:gf(o,'oi','open_interest'),
+      oiChg:gf(o,'oich','oi_change'),
+      vol:gf(o,'volume','vol'),
+      iv:gf(o,'iv','implied_volatility'),
+      delta:gf(o,'delta'),gamma:gf(o,'gamma'),
+      theta:gf(o,'theta'),vega:gf(o,'vega'),
+      bid:gf(o,'bid'),ask:gf(o,'ask'),
+    };
+    if(ot.startsWith('C'))rows[K].call=parsed;
+    else if(ot.startsWith('P'))rows[K].put=parsed;
+  }
+  const chain=Object.values(rows).sort((a,b)=>a.strike-b.strike);
+  return{chain,spot};
+}
+
+// Normalises the raw `expiryData` list (each entry has a `date` and an
+// `expiry` field, but FYERS doesn't document which one is the epoch
+// timestamp vs the display string) into parallel label/timestamp arrays.
+function parseExpiryList(expList){
+  const labels=[],tss=[];
+  for(const e of(expList||[])){
+    let ts=null,label=null;
+    for(const key of['date','expiry']){
+      const v=e[key];
+      if(v==null||v==='')continue;
+      const s=String(v);
+      if(/^\d{9,10}$/.test(s))ts=+s;              // plausible unix seconds
+      else if(/^\d{12,13}$/.test(s))ts=Math.floor(+s/1000);  // unix ms
+      else if(label==null)label=s;
+    }
+    if(label==null)label=String(e.expiry||e.date||'');
+    labels.push(label);tss.push(ts);
+  }
+  return{labels,tss};
+}
+
 function parseOC(data){
   const raw=data.data||{};
-  const und=raw.underlyingData||{};
-  const lp=gf(und,'ltp','last_price');
-  if(lp){FD.spot=lp;ST.spot=lp;}
+  const{chain,spot}=groupOptionsChain(raw.optionsChain);
+  if(spot){FD.spot=spot;ST.spot=spot;}
+  FD.chain=chain;
 
   const expList=raw.expiryData||[];
   if(!expList.length)throw new Error('Empty expiryData in option chain response');
-  FD.expiries=expList.map(e=>e.expiry||e.date||String(e));
+  const{labels,tss}=parseExpiryList(expList);
+  FD.expiries=labels;FD.expTs=tss;
 
-  // ── Parse a single expiry's chain data into normalised rows ───────
-  function parseChain(expData){
-    const chainRaw=expData.optionChainData||expData.data||[];
-    return chainRaw.map(item=>{
-      const K=item.strikePrice||item.strike_price||0;
-      if(!K)return null;
-      const c=item.callOptions||item.CE||{};
-      const p=item.putOptions||item.PE||{};
-      function parse(o){
-        return{
-          ltp:gf(o,'ltp','last_price'),
-          oi:gf(o,'open_interest','oi','OI'),
-          oiChg:gf(o,'oi_change','change_in_oi','OI_Change'),
-          vol:gf(o,'volume','vol'),
-          iv:gf(o,'iv','implied_volatility'),
-          delta:gf(o,'delta'),gamma:gf(o,'gamma'),
-          theta:gf(o,'theta'),vega:gf(o,'vega'),
-          bid:gf(o,'bid'),ask:gf(o,'ask'),
-        };
-      }
-      return{strike:K,call:parse(c),put:parse(p)};
-    }).filter(Boolean).sort((a,b)=>a.strike-b.strike);
-  }
-
-  // ── Compute ATM straddle for an arbitrary chain snapshot ──────────
-  function atmStraddle(chain,spot){
-    if(!chain.length||!spot)return 0;
-    const atm=chain.reduce((a,b)=>Math.abs(b.strike-spot)<Math.abs(a.strike-spot)?b:a);
-    return r1(atm.call.ltp+atm.put.ltp);
-  }
-
-  // ── Selected expiry (weekly by default) ──────────────────────────
-  const selIdx=Math.min(FD.selExp,expList.length-1);
-  const sel=expList[selIdx];
-  FD.chain=parseChain(sel);
-
-  // Auto-calculate DTE from the selected expiry string
-  const expStr=sel.expiry||sel.date||'';
-  const autoDte=calcDTE(expStr);
+  // Auto-calculate DTE from the selected expiry's label
+  const selIdx=Math.min(FD.selExp,labels.length-1);
+  const autoDte=calcDTE(labels[selIdx]);
   if(autoDte>0)ST.dte=autoDte;
 
-  // ── ATM & weekly straddle ─────────────────────────────────────────
+  // ── ATM & straddle for the currently selected/displayed expiry ────
   if(FD.spot&&FD.chain.length){
     const atmRow=FD.chain.reduce((a,b)=>Math.abs(b.strike-FD.spot)<Math.abs(a.strike-FD.spot)?b:a);
     FD.atm=atmRow.strike;
     FD.straddle=r1(atmRow.call.ltp+atmRow.put.ltp);
-    ST.sw=FD.straddle;
-  }
-
-  // ── Next-week straddle from 2nd expiry ───────────────────────────
-  if(expList.length>1&&selIdx===0){
-    const nwChain=parseChain(expList[1]);
-    const nwStrd=atmStraddle(nwChain,FD.spot);
-    if(nwStrd>0)ST.snw=nwStrd;
-  }
-
-  // ── Monthly straddle — find first expiry ≥ 20 trading days away ──
-  for(let i=2;i<expList.length;i++){
-    const expDateStr=expList[i].expiry||expList[i].date||'';
-    if(calcDTE(expDateStr)>=20){
-      const mChain=parseChain(expList[i]);
-      const mStrd=atmStraddle(mChain,FD.spot);
-      if(mStrd>0){ST.sm=mStrd;break;}
-    }
+    if(selIdx===0)ST.sw=FD.straddle;  // "ATM Straddle" header = nearest/weekly by convention
   }
 
   // ── PCR ──────────────────────────────────────────────────────────
@@ -729,7 +774,35 @@ function rHdr(){
   else if(FD.connected){mb.className='badge live';mb.textContent='● LIVE';}
   else if(FD.error){mb.className='badge err';mb.textContent='✗ Error';}
   else{mb.className='badge demo';mb.textContent='◉ DEMO';}
+  rExpirySelect();
   rHeaderConnect();
+}
+
+// ── Header expiry selector ──────────────────────────────────────────
+function rExpirySelect(){
+  const sel=document.getElementById('h-exp');
+  if(!sel)return;
+  if(!FD.expiries.length){
+    sel.innerHTML='<option>–</option>';
+    sel.disabled=true;
+    return;
+  }
+  sel.disabled=false;
+  const opts=FD.expiries.map((label,i)=>
+    `<option value="${i}">${label}${i===0?' (Weekly)':''}</option>`).join('');
+  if(sel.innerHTML!==opts)sel.innerHTML=opts;
+  sel.value=String(FD.selExp);
+}
+
+// Switching expiry re-fetches the chain for that expiry specifically
+// (FYERS returns one expiry per call — see API.optionChain's timestamp
+// param) and re-renders whichever tab is showing the chain.
+function onExpiryChange(idxStr){
+  const idx=+idxStr;
+  if(idx===FD.selExp)return;
+  FD.selExp=idx;
+  if(FD.connected)fetchAll();
+  else renderCur();
 }
 
 // ═══════════════════════════════════════════════════════════════════
