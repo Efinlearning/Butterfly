@@ -347,7 +347,7 @@ func handleQuotes(w http.ResponseWriter, r *http.Request) {
 	fetchAndRelay(w, target)
 }
 
-// ── GET /api/option-chain?symbol=NSE:NIFTY50-INDEX&strikecount=25 ──
+// ── GET /api/option-chain?symbol=NSE:NIFTY50-INDEX&strikecount=25&timestamp=&greeks=1 ──
 func handleOptionChain(w http.ResponseWriter, r *http.Request) {
 	if !requireAuth(w, r) {
 		return
@@ -363,6 +363,14 @@ func handleOptionChain(w http.ResponseWriter, r *http.Request) {
 	q := url.Values{}
 	q.Set("symbol", symbol)
 	q.Set("strikecount", strikecount)
+	// Greeks (delta/gamma/theta/vega/iv) are NOT included by default — FYERS
+	// requires this flag to add them to each row.
+	q.Set("greeks", "1")
+	// Selecting a specific expiry: FYERS takes an epoch-seconds timestamp for
+	// that expiry; omit it (or pass empty) for the nearest/current expiry.
+	if ts := r.URL.Query().Get("timestamp"); ts != "" {
+		q.Set("timestamp", ts)
+	}
 	// FYERS v3's real option-chain endpoint is /data/options-chain-v3
 	// (per the official Python SDK's Config class) — NOT /api/v3/data/option-chain.
 	target := fyersDataHost + "/options-chain-v3?" + q.Encode()
