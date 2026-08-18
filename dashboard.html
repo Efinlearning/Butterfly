@@ -184,15 +184,20 @@ code{background:var(--s2);padding:1px 5px;border-radius:3px;font-size:11px;font-
 <!-- ─── TABS ──────────────────────────────────────────────────── -->
 <div id="tabs">
   <button class="tab active" onclick="doTab('exit',this)">Exit Tool</button>
+  <button class="tab" onclick="doTab('scr',this)">Option Chain</button>
+  <button class="tab" onclick="doTab('pre',this)">Pre-Entry</button>
   <button class="tab" onclick="doTab('csim',this)">Chain Sim</button>
   <button class="tab" onclick="doTab('pos',this)">Positions</button>
   <button class="tab" onclick="doTab('rsk',this)">Risk</button>
 </div>
 <!-- ─── PANELS ────────────────────────────────────────────────── -->
 <div id="p-exit" class="pnl on"></div>
+<div id="p-scr" class="pnl"></div>
+<div id="p-pre" class="pnl"></div>
 <div id="p-csim" class="pnl"></div>
 <div id="p-pos"  class="pnl"></div>
 <div id="p-rsk"  class="pnl"></div>
+<div id="bf-modal-root"></div>
 
 <script>
 'use strict';
@@ -257,6 +262,7 @@ const FD={
   spot:null,vix:null,expiries:[],selExp:0,
   chain:[],atm:null,straddle:null,pcr:null,maxPain:null,
   chg:null,chgP:null,open:null,high:null,low:null,
+  vixChg:null,vixChgP:null,
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -264,10 +270,11 @@ const FD={
 // ═══════════════════════════════════════════════════════════════════
 const ST={
   strikeCount:12,autoRId:null,
-  spot:24500,vix:13.5,sw:220,snw:340,sm:520,dte:4,exp:'w',lotSize:75,
+  spot:24500,vix:13.5,sw:220,snw:340,sm:520,dte:4,exp:'w',lotSize:65,
   positions:[],nextId:1,selPosId:null,pendingAdd:null,
   cs:{str:24500,type:'C',gap:100,dbt:14,flp:110},
   rsk:{dlim:-5000,wlim:-15000,dpnl:-800,wpnl:2200,dlta:8,vga:-85,mdt:50,mvg:300},
+  calib:{vixDirOv:null,moveOv:null,events:false},
   get aSpot(){return FD.spot||this.spot;},
   get aVix(){return FD.vix||this.vix;},
   get aStrd(){return FD.straddle||({w:this.sw,nw:this.snw,m:this.sm}[this.exp]||this.sw);},
@@ -288,14 +295,15 @@ const ST={
 //    directly. The backend holds the access token and injects it.
 // ═══════════════════════════════════════════════════════════════════
 // ⚠️ EDIT THIS to your deployed backend's URL (no trailing slash):
-const BACKEND_URL='https://butterfly-kzpf.onrender.com';
+const BACKEND_URL='https://your-service.onrender.com';
 
 const API={
+  get BASE(){return `${BACKEND_URL}/api/fyers`;},
   async get(path,retries=2){
     const ctrl=new AbortController();
     const tid=setTimeout(()=>ctrl.abort(),12000);  // 12-second timeout
     try{
-      const r=await fetch(BACKEND_URL+path,{method:'GET',mode:'cors',signal:ctrl.signal});
+      const r=await fetch(this.BASE+path,{method:'GET',mode:'cors',signal:ctrl.signal});
       clearTimeout(tid);
       const d=await r.json();
       if(r.status===401)throw new Error(d.message||'Not connected — click Connect');
@@ -314,11 +322,11 @@ const API={
   },
   quotes(syms){
     const s=Array.isArray(syms)?syms.join(','):syms;
-    return this.get(`/api/quotes?symbols=${encodeURIComponent(s)}`);
+    return this.get(`/quotes?symbols=${encodeURIComponent(s)}`);
   },
   optionChain(sym='NSE:NIFTY50-INDEX'){
     // 25 strikes each side gives comfortable coverage for Exit Tool (±500 pts)
-    return this.get(`/api/option-chain?symbol=${encodeURIComponent(sym)}&strikecount=25`);
+    return this.get(`/data/option-chain?symbol=${encodeURIComponent(sym)}&strikecount=25`);
   },
 };
 
@@ -328,7 +336,7 @@ async function fetchAll(){
   rHdr();
   try{
     const [qd,od]=await Promise.all([
-      API.quotes(['NSE:NIFTY50-INDEX','NSE:INDIAVIX-INDEX']),
+      API.quotes(['NSE:NIFTY50-INDEX','NSE:INDIA VIX-INDEX']),
       API.optionChain(),
     ]);
     parseQuotes(qd);
@@ -338,7 +346,7 @@ async function fetchAll(){
     FD.error=e.message;
     // Fallback: try quotes only
     try{
-      const qd=await API.quotes(['NSE:NIFTY50-INDEX','NSE:INDIAVIX-INDEX']);
+      const qd=await API.quotes(['NSE:NIFTY50-INDEX','NSE:INDIA VIX-INDEX']);
       parseQuotes(qd);
       FD.connected=true;FD.lastUpdated=new Date();
       FD.error='Option chain unavailable: '+e.message;
@@ -410,7 +418,10 @@ function parseQuotes(data){
       FD.chg=gf(v,'ch','change');FD.chgP=r2(gf(v,'chp','change_percent'));
       FD.open=gf(v,'open');FD.high=gf(v,'high');FD.low=gf(v,'low');
     }
-    if(item.n==='NSE:INDIAVIX-INDEX'){FD.vix=r2(lp);ST.vix=r2(lp);}
+    if(item.n==='NSE:INDIA VIX-INDEX'){
+      FD.vix=r2(lp);ST.vix=r2(lp);
+      FD.vixChg=gf(v,'ch','change');FD.vixChgP=r2(gf(v,'chp','change_percent'));
+    }
   }
 }
 
@@ -569,7 +580,7 @@ const WSF={
           // Subscribe to NIFTY spot + VIX
           this.ws.send(JSON.stringify({
             T:'SUB_L2',
-            SLIST:['NSE:NIFTY50-INDEX','NSE:INDIAVIX-INDEX'],
+            SLIST:['NSE:NIFTY50-INDEX','NSE:INDIA VIX-INDEX'],
             SUB_T:1
           }));
         }else if(msg.T==='error'){
@@ -627,7 +638,7 @@ const WSF={
       rHdr();
       if(curTab==='exit')rExit();
     }
-    if(sym==='NSE:INDIAVIX-INDEX'){
+    if(sym==='NSE:INDIA VIX-INDEX'){
       FD.vix=r2(ltp);ST.vix=r2(ltp);rHdr();
     }
   },
@@ -684,6 +695,17 @@ function simBF(K,type,mv,gap){
   const nv=ivol(ns,nst,ST.dte);
   if(type==='C')return Math.max(.5,r1(bsc(ns,K,ST.T,nv)-2*bsc(ns,K+g2,ST.T,nv)+bsc(ns,K+2*g2,ST.T,nv)));
   return Math.max(.5,r1(bsp(ns,K,ST.T,nv)-2*bsp(ns,K-g2,ST.T,nv)+bsp(ns,K-2*g2,ST.T,nv)));
+}
+function simScenario(K,type,mv,gap){
+  const ns=ST.aSpot+mv,g2=gap||ST.aGap;
+  const dvix=mv<0?Math.abs(mv/ST.aSpot)*75:-mv/ST.aSpot*45;
+  const nvix=Math.max(8,ST.aVix+dvix);
+  const nst=ST.aStrd*(nvix/ST.aVix)*(ns/ST.aSpot);
+  const nv=ivol(ns,nst,ST.dte);
+  let rate,flp;
+  if(type==='C'){rate=Math.max(.5,r1(bsc(ns,K,ST.T,nv)-2*bsc(ns,K+g2,ST.T,nv)+bsc(ns,K+2*g2,ST.T,nv)));flp=r1(bsc(ns,K,ST.T,nv));}
+  else{rate=Math.max(.5,r1(bsp(ns,K,ST.T,nv)-2*bsp(ns,K-g2,ST.T,nv)+bsp(ns,K-2*g2,ST.T,nv)));flp=r1(bsp(ns,K,ST.T,nv));}
+  return{ns,nvix,rate,flp};
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -804,6 +826,80 @@ window.addEventListener('message',(event)=>{
   }
 });
 
+// ── OPTION CHAIN ──────────────────────────────────────────────────
+function rScr(){
+  const g=ST.aGap,sp=ST.aSpot;
+  const atm=FD.atm||Math.round(sp/50)*50;
+  const hasReal=FD.connected&&FD.chain.length>0;
+  const allStrikes=hasReal
+    ?FD.chain.map(c=>c.strike).sort((a,b)=>a-b)
+    :[...new Set([-4,-3,-2,-1,0,1,2,3,4].map(i=>Math.round((atm+i*g)/50)*50))].sort((a,b)=>a-b);
+  const maxOI=hasReal?Math.max(...FD.chain.flatMap(c=>[c.call.oi,c.put.oi]),1):1;
+  function oibar(oi,type){
+    const pct=Math.min(100,oi/maxOI*100).toFixed(0);
+    return `<div class="oibar"><div class="${type==='c'?'oic':'oip'}" style="width:${pct}%"></div></div>`;
+  }
+  function row(K){
+    const live=hasReal?FD.chain.find(c=>c.strike===K):null;
+    const cLTP=live?r1(live.call.ltp):r1(bsc(sp,K,ST.T,ST.v));
+    const pLTP=live?r1(live.put.ltp):r1(bsp(sp,K,ST.T,ST.v));
+    const cIV=live?r1(live.call.iv):'–';const pIV=live?r1(live.put.iv):'–';
+    const cOI=live?live.call.oi:0;const pOI=live?live.put.oi:0;
+    const cOIChg=live?live.call.oiChg:0;const pOIChg=live?live.put.oiChg:0;
+    const cBF=cbf(K,g),pBF=pbf(K,g);
+    const cVP=vp(cBF,cLTP),pVP=vp(pBF,pLTP);
+    const cST=vs(cVP),pST=vs(pVP),m=mn(K,'C');
+    const isATM=m==='ATM';
+    const oc=cOIChg>=0?'var(--suc)':'var(--dng)';
+    const op=pOIChg>=0?'var(--suc)':'var(--dng)';
+    return`<tr ${isATM?'class="hl"':''}>
+<td style="text-align:right">${oibar(pOI,'p')} <span style="color:var(--dng)">${hasReal?fmt(pOI):'–'}</span></td>
+<td style="color:${op};font-size:10px">${hasReal?(pOIChg>=0?'+':'')+fmt(pOIChg):'–'}</td>
+<td style="color:var(--t3)">${pIV}</td>
+<td style="color:var(--dng);font-weight:500">${pLTP}</td>
+<td class="${pST.tc}">${pVP.toFixed(1)}%</td>
+<td style="text-align:center;font-weight:500">
+  ${fmt(K)} <span class="tag ${mc(m)}" style="font-size:9px">${m}</span>
+</td>
+<td class="${cST.tc}">${cVP.toFixed(1)}%</td>
+<td style="color:var(--suc);font-weight:500">${cLTP}</td>
+<td style="color:var(--t3)">${cIV}</td>
+<td style="color:${oc};font-size:10px">${hasReal?(cOIChg>=0?'+':'')+fmt(cOIChg):'–'}</td>
+<td><span style="color:var(--suc)">${hasReal?fmt(cOI):'–'}</span> ${oibar(cOI,'c')}</td>
+<td>
+  <button class="btn btn-g" onclick="qAdd('C',${K},${g},${cBF},${cLTP})" ${cVP>25?'disabled':''}>+C</button>
+  <button class="btn btn-g" onclick="qAdd('P',${K},${g},${pBF},${pLTP})" ${pVP>25?'disabled':''}>+P</button>
+</td>
+</tr>`;
+  }
+  document.getElementById('p-scr').innerHTML=`
+<div class="ib" style="margin-bottom:8px">
+  <b>Value Concept:</b> BF Rate ÷ FLP — ≤10% Ideal · ≤20% Pass · 20–25% Borderline · &gt;25% Fail (disabled).
+  Gap: <b>${g} pts</b> · ATM: <b>${fmt(atm)}</b> · ${hasReal?'<b style="color:var(--suc)">● Live Fyers data</b>':'<b>Demo — Black-Scholes estimates</b>'}
+</div>
+<div class="scrollx">
+<table class="tbl">
+<thead>
+<tr>
+  <th colspan="4" style="text-align:center;background:color-mix(in srgb,var(--dng) 10%,transparent)">← PUTS</th>
+  <th style="text-align:center">P Val%</th>
+  <th style="text-align:center">STRIKE</th>
+  <th style="text-align:center">C Val%</th>
+  <th colspan="5" style="text-align:center;background:color-mix(in srgb,var(--suc) 10%,transparent)">CALLS →</th>
+  <th>Add</th>
+</tr>
+<tr>
+  <th>OI ←</th><th>OI Chg</th><th>IV</th><th>LTP</th>
+  <th></th><th></th><th></th>
+  <th>LTP</th><th>IV</th><th>OI Chg</th><th>→ OI</th>
+  <th></th>
+</tr>
+</thead>
+<tbody>${allStrikes.map(K=>row(K)).join('')}</tbody>
+</table></div>
+<div class="ib">Straddle (ATM call+put): <b>${ST.aStrd}</b> · PCR: <b>${FD.pcr||'–'}</b> · Max Pain: <b>${FD.maxPain?fmt(FD.maxPain):'–'}</b>. OI bars show relative open interest. +C/+P buttons add the call/put butterfly to the Position Tracker. ${hasReal?'':'Connect Fyers API to see real OI, IV, and volume.'}</div>`;
+}
+
 // ── EXIT TOOL ─────────────────────────────────────────────────────
 function rExit(){
   const g=ST.aGap,atm=FD.atm||Math.round(ST.aSpot/50)*50;
@@ -837,8 +933,8 @@ function rExit(){
       const rate=type==='C'?cbf(K,gap):pbf(K,gap);
       const pct=vp(rate,ltp);
       const valClr=isOTM?vc(pct):'var(--t2)';
-      return `<td class="ect-rate">${rate}</td>`+
-             `<td class="ect-val" style="color:${valClr}">${pct.toFixed(1)}%</td>`;
+      return `<td class="ect-rate" onclick="openBFModal('${type}',${K},${gap},${rate},${ltp})" title="Click for VAL%, trade management & chain concept">${rate}</td>`+
+             `<td class="ect-val" style="color:${valClr}" onclick="openBFModal('${type}',${K},${gap},${rate},${ltp})" title="Click for VAL%, trade management & chain concept">${pct.toFixed(1)}%</td>`;
     }).join('');
 
     const bf=type==='C'?cbf(K,g):pbf(K,g);
@@ -915,8 +1011,9 @@ function rExit(){
 .ect-tbl tbody tr:nth-child(even) .ect-ltp,
 .ect-tbl tbody tr:nth-child(even) .ect-strike{background:var(--s0);}
 .ect-atm-row .ect-ltp,.ect-atm-row .ect-strike{background:rgba(0,110,95,.28)!important;}
-.ect-rate{color:var(--t);text-align:right;}
-.ect-val{text-align:right;}
+.ect-rate{color:var(--t);text-align:right;cursor:pointer;}
+.ect-val{text-align:right;cursor:pointer;}
+.ect-rate:hover,.ect-val:hover{text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;}
 </style>
 <div class="ect-info">
   Gap <b>${g} pts</b> &nbsp;·&nbsp; Combo <b>${ST.aCombo.l}</b> &nbsp;·&nbsp; ATM <b>${fmt(atm)}</b>
@@ -933,6 +1030,547 @@ function rExit(){
     <div class="ect-side-hdr"><span class="ect-dot-p">●</span>&nbsp; Put Butterfly (Decreasing ↓)</div>
     <div class="ect-scroll"><table class="ect-tbl">${colgroup}${thead}<tbody>${putStrikes.map(K=>buildRow(K,'P')).join('')}</tbody></table></div>
   </div>
+</div>
+`;
+}
+
+// ── BF RATE MODAL (VAL% + Trade Management + Chain Concept) ───────
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeBFModal();});
+function closeBFModal(){
+  const r=document.getElementById('bf-modal-root');
+  if(r)r.innerHTML='';
+}
+function guidanceFor(tc){
+  return{
+    ideal:{h:'Ideal entry — Value% ≤ 10%',b:'Factor 1 score: 60/60. Once open, Hold% ≤ 15% → hold comfortably, theta works for you. No action needed unless chain deteriorates.'},
+    pass: {h:'Pass — Value% ≤ 20%',b:'Factor 1 score: 45/60. Monitor the Hold% 15–20% band: hold, but check chain concept for adjacent BF rates. If chain shows deterioration → prepare to exit.'},
+    warn: {h:'Borderline — Value% ≤ 25%',b:'Factor 1 score: 5/60. If Hold% reaches 20–25%, review 3 checks: (a) is the other side compensating, (b) does chain show improvement, (c) is straddle falling (VIX dropping). Any YES → hold one more session. All NO → exit this leg.'},
+    fail: {h:'Fail — Value% > 25%',b:'Factor 1 auto-reject at entry. If already open, Hold% > 25% → EXIT IMMEDIATELY, non-negotiable. Book at whatever price is available — do not wait for recovery.'}
+  }[tc];
+}
+function computeEntryScore(K,type,gap,entryRate,ltp,valPct){
+  const factors=[];
+
+  // FACTOR 1 — Value% (max 60)
+  let f1,f1Note;
+  if(valPct>25){f1=-999;f1Note=`${valPct.toFixed(1)}% — REJECT (hard stop)`;}
+  else if(valPct<=10){f1=60;f1Note=`${valPct.toFixed(1)}% ≤10% (Ideal)`;}
+  else if(valPct<=15){f1=45;f1Note=`${valPct.toFixed(1)}% ≤15% (Good)`;}
+  else if(valPct<=20){f1=25;f1Note=`${valPct.toFixed(1)}% ≤20% (Pass)`;}
+  else{f1=5;f1Note=`${valPct.toFixed(1)}% ≤25% (Borderline)`;}
+  const rejected=f1===-999;
+  factors.push({n:1,label:'Value%',detail:f1Note,pts:f1,max:60});
+
+  // FACTOR 2 — VIX direction (max 40)
+  const estimated=FD.vixChg==null;
+  const vixChg=FD.vixChg!=null?FD.vixChg:(ST.calib.vixDirOv==='falling'?-0.6:ST.calib.vixDirOv==='rising'?0.6:0);
+  let f2,f2Note;
+  if(vixChg<0){
+    const drop=-vixChg;
+    if(drop>1.0){f2=40;f2Note=`Falling ${drop.toFixed(2)} (>1.0) — best`;}
+    else if(drop>=0.5){f2=25;f2Note=`Falling ${drop.toFixed(2)} (0.5–1.0)`;}
+    else{f2=10;f2Note=`Falling ${drop.toFixed(2)} (0–0.5)`;}
+  }else if(vixChg<=1.0){f2=0;f2Note=`${vixChg===0?'Flat':'Rising '+vixChg.toFixed(2)} (0–1.0)`;}
+  else{f2=-20;f2Note=`Rising ${vixChg.toFixed(2)} (>1.0) — bad`;}
+  factors.push({n:2,label:'VIX direction',detail:f2Note+(estimated?' (est.)':''),pts:f2,max:40});
+
+  // FACTOR 3 — Overshoot ratio (max 40)
+  const move=ST.calib.moveOv!=null?ST.calib.moveOv:(FD.chg!=null?FD.chg:0);
+  const ratio=ST.aStrd>0?r2(Math.abs(move)/ST.aStrd):0;
+  let f3,f3Note;
+  if(ratio>1.2){f3=40;f3Note=`Ratio ${ratio.toFixed(2)} (>1.2) — prime`;}
+  else if(ratio>=0.9){f3=20;f3Note=`Ratio ${ratio.toFixed(2)} (0.9–1.2)`;}
+  else if(ratio>=0.5){f3=5;f3Note=`Ratio ${ratio.toFixed(2)} (0.5–0.9)`;}
+  else{f3=-10;f3Note=`Ratio ${ratio.toFixed(2)} (<0.5)`;}
+  factors.push({n:3,label:'Overshoot ratio',detail:f3Note,pts:f3,max:40});
+
+  // FACTOR 4 — Double Middle Lock (30)
+  const callMid=oiMiddleStrike('C'),putMid=oiMiddleStrike('P');
+  let f4,f4Note;
+  if(!FD.chain.length){f4=0;f4Note='No live OI data — assumed 0';}
+  else if(callMid&&putMid&&callMid.strike===putMid.strike){f4=30;f4Note=`Call & Put middle both ${fmt(callMid.strike)} — locked`;}
+  else{f4=0;f4Note=`Call mid ${callMid?fmt(callMid.strike):'—'} ≠ Put mid ${putMid?fmt(putMid.strike):'—'}`;}
+  factors.push({n:4,label:'Double Middle Lock',detail:f4Note,pts:f4,max:30});
+
+  // FACTOR 5 — PCR neutral zone (10)
+  const pcr=FD.pcr||0;
+  let f5,f5Note;
+  if(pcr>=0.7&&pcr<=1.3){f5=10;f5Note=`PCR ${pcr} (0.7–1.3) — neutral`;}
+  else if(pcr&&pcr<0.5){f5=-10;f5Note=`PCR ${pcr} (<0.5) — extreme`;}
+  else if(pcr>1.8){f5=-10;f5Note=`PCR ${pcr} (>1.8) — extreme`;}
+  else{f5=0;f5Note=`PCR ${pcr||'–'} (outside bands)`;}
+  factors.push({n:5,label:'PCR neutral zone',detail:f5Note,pts:f5,max:10});
+
+  // FACTOR 6 — Chain Concept, README PART 5: 3 scenarios (Up straddle / Flat / Down straddle)
+  const strd=ST.aStrd;
+  const scenUp=simScenario(K,type,strd,gap);
+  const scenFlat=simScenario(K,type,0,gap);
+  const scenDn=simScenario(K,type,-strd,gap);
+  const thr=r1(entryRate*0.40);
+  const sUp=scenUp.rate>=thr,sFlat=scenFlat.rate>=thr,sDn=scenDn.rate>=thr;
+  const survivedCount=[sUp,sFlat,sDn].filter(Boolean).length;
+  let f6=survivedCount===3?20:survivedCount===2?10:survivedCount===1?0:-20;
+  factors.push({n:6,label:'Chain Concept',detail:`${survivedCount}/3 scenarios survive (≥40% of entry = ₹${thr})`,pts:f6,max:20,
+    scenarios:[
+      {l:`Up ${strd}pt`,spot:scenUp.ns,rate:scenUp.rate,ok:sUp},
+      {l:'Flat',spot:scenFlat.ns,rate:scenFlat.rate,ok:sFlat},
+      {l:`Down ${strd}pt`,spot:scenDn.ns,rate:scenDn.rate,ok:sDn},
+    ]});
+
+  const total=rejected?-999:factors.reduce((a,f)=>a+f.pts,0);
+  let decision;
+  if(rejected)decision={l:'REJECT — Value% > 25% (hard stop, non-negotiable)',c:'lo'};
+  else if(valPct>20){
+    const chainOk=survivedCount>=2,vixOk=vixChg<0&&(-vixChg)>0.5,osOk=ratio>1.0;
+    if(!(chainOk&&vixOk&&osOk))decision={l:`SKIP — Borderline Value% fails entry conditions (chain ${chainOk?'✓':'✗'} · VIX falling >0.5 ${vixOk?'✓':'✗'} · overshoot>1.0 ${osOk?'✓':'✗'})`,c:'lo'};
+    else if(total>=120)decision={l:'STRONG ENTRY — tiered sizing (3× base)',c:'hi'};
+    else if(total>=60)decision={l:'NORMAL ENTRY — base sizing',c:'hi'};
+    else decision={l:'SKIP — score below 60',c:'lo'};
+  }
+  else if(total>=120)decision={l:'STRONG ENTRY — tiered sizing (2–3× base)',c:'hi'};
+  else if(total>=60)decision={l:'NORMAL ENTRY — base sizing',c:'hi'};
+  else decision={l:'SKIP — look for a better strike/timing',c:'lo'};
+
+  return{factors,total,decision,rejected};
+}
+function openBFModal(type,K,gap,entryRate,ltp){
+  const pct=vp(entryRate,ltp);
+  const grade=vs(pct);
+  const guide=guidanceFor(grade.tc);
+  const score=computeEntryScore(K,type,gap,entryRate,ltp,pct);
+  const offsets=[200,150,100,50,0,-50,-100,-150,-200];
+
+  const rows=offsets.map(mv=>{
+    if(mv===0){
+      return{mv,spot:ST.aSpot,rate:entryRate,flp:ltp,valPct:pct,pnl:0,verdict:'ENTRY',vc:'nu'};
+    }
+    const sc=simScenario(K,type,mv,gap);
+    const valPct=vp(entryRate,sc.flp);
+    const pnl=r1(sc.rate-entryRate);
+    let verdict,vc;
+    if(valPct>25){verdict='EXIT';vc='lo';}
+    else if(valPct>20){verdict='REVIEW';vc='mid';}
+    else{verdict='HOLD';vc='hi';}
+    return{mv,spot:sc.ns,rate:sc.rate,flp:sc.flp,valPct,pnl,verdict,vc};
+  });
+  const adverse=rows.filter(r=>r.mv!==0);
+  const survive=adverse.filter(r=>r.verdict==='HOLD').length;
+  const total=adverse.length;
+  const overall=survive>=6?{l:'Chain strongly favors HOLD',c:'hi'}
+    :survive>=4?{l:'Chain moderately favors HOLD — manage closely',c:'hi'}
+    :survive>=2?{l:'Chain mixed — tighten management',c:'mid'}
+    :{l:'Chain flags EXIT risk on adverse scenarios',c:'lo'};
+
+  const rowsHtml=rows.map(r=>`<tr class="${r.mv===0?'bfm-base':''}">
+      <td class="bfm-mv" style="color:${r.mv>0?'var(--suc)':r.mv<0?'var(--dng)':'var(--t2)'}">${r.mv>0?'+':''}${r.mv}</td>
+      <td>${fmt(r.spot)}</td>
+      <td>${r.rate}</td>
+      <td>${r.flp}</td>
+      <td style="color:${r.valPct>25?'var(--dng)':r.valPct>20?'var(--wrn)':'var(--suc)'}">${r.valPct.toFixed(1)}%</td>
+      <td style="color:${r.pnl>=0?'var(--suc)':'var(--dng)'};font-weight:600">${r.pnl>=0?'+':''}${r.pnl}</td>
+      <td><span class="bfm-chip ${r.vc}">${r.verdict}</span></td>
+    </tr>`).join('');
+
+  const factorRows=score.factors.map(f=>{
+    const c=f.pts>0?'hi':f.pts<0?'lo':'nu';
+    let extra='';
+    if(f.scenarios){
+      extra=`<div class="bfm-f6grid">${f.scenarios.map(s=>`
+        <div class="bfm-f6cell ${s.ok?'ok':'no'}"><div class="bfm-f6l">${s.l}</div>
+          <div class="bfm-f6v">${fmt(s.spot)} · ₹${s.rate}</div>
+          <div class="bfm-f6t">${s.ok?'✓ Survives':'✗ Fails'}</div></div>`).join('')}</div>`;
+    }
+    return`<div class="bfm-frow">
+      <div class="bfm-fbadge">${f.n}</div>
+      <div class="bfm-fmain"><div class="bfm-flabel">${f.label} <span class="bfm-fmax">(max ${f.max<0?f.max:f.max})</span></div>
+        <div class="bfm-fdetail">${f.detail}</div>${extra}</div>
+      <div class="bfm-fpts ${c}">${f.pts>0?'+':''}${f.pts}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('bf-modal-root').innerHTML=`
+<style>
+.bfm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px;}
+.bfm-box{width:100%;max-width:600px;max-height:88vh;overflow-y:auto;background:var(--s1);border:1px solid var(--b);
+  border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+.bfm-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;padding:12px 16px;
+  background:var(--s0);border-bottom:1px solid var(--b);}
+.bfm-title{flex:1;font-size:12.5px;font-weight:600;color:var(--t);}
+.bfm-title small{display:block;font-size:9.5px;color:var(--t3);font-weight:400;margin-top:2px;}
+.bfm-close{flex-shrink:0;width:24px;height:24px;border-radius:6px;border:1px solid var(--b);background:var(--s2);
+  color:var(--t2);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;}
+.bfm-close:hover{background:var(--s0);color:var(--t);}
+.bfm-body{padding:14px 16px;}
+.bfm-mgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:7px;margin-bottom:12px;}
+.bfm-metric{background:var(--s0);border:1px solid var(--b);border-radius:7px;padding:7px 9px;}
+.bfm-ml{font-size:8.5px;color:var(--t2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;font-weight:600;}
+.bfm-mv{font-size:13px;font-weight:600;color:var(--t);}
+.bfm-note{background:var(--s0);border-left:3px solid var(--acc);border-radius:0 7px 7px 0;padding:9px 12px;
+  font-size:11px;color:var(--t2);line-height:1.65;margin-bottom:14px;}
+.bfm-note b{color:var(--t);}
+.bfm-st{font-size:10.5px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.04em;
+  margin:14px 0 7px;}
+.bfm-tbl{width:100%;border-collapse:collapse;font-size:11px;}
+.bfm-tbl th{background:var(--s0);color:var(--t2);font-weight:600;padding:6px 8px;text-align:right;
+  font-size:9px;text-transform:uppercase;letter-spacing:.03em;border:1px solid var(--b);}
+.bfm-tbl th:first-child,.bfm-tbl td:first-child{text-align:left;}
+.bfm-tbl td{padding:6px 8px;text-align:right;border:1px solid var(--b);color:var(--t);}
+.bfm-tbl tbody tr:nth-child(odd) td{background:var(--s0);}
+.bfm-base td{background:rgba(0,110,95,.22)!important;font-weight:600;}
+.bfm-chip{display:inline-block;padding:1px 8px;border-radius:20px;font-size:9px;font-weight:700;}
+.bfm-chip.hi{background:var(--bgs);color:var(--suc);border:1px solid var(--bs);}
+.bfm-chip.mid{background:var(--bgw);color:var(--wrn);border:1px solid var(--bw);}
+.bfm-chip.lo{background:var(--bgd);color:var(--dng);border:1px solid var(--bd);}
+.bfm-chip.nu{background:var(--bga);color:var(--acc);border:1px solid var(--ba);}
+.bfm-summary{display:flex;align-items:center;gap:8px;margin-top:10px;padding:9px 12px;border-radius:7px;
+  background:var(--s0);border:1px solid var(--b);font-size:11px;color:var(--t);}
+.bfm-frow{display:flex;align-items:flex-start;gap:9px;padding:8px 4px;border-bottom:1px solid var(--b);}
+.bfm-frow:last-child{border-bottom:none;}
+.bfm-fbadge{flex-shrink:0;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:700;background:var(--bga);color:var(--acc);border:1px solid var(--ba);margin-top:1px;}
+.bfm-fmain{flex:1;min-width:0;}
+.bfm-flabel{font-size:11px;font-weight:600;color:var(--t);}
+.bfm-fmax{font-size:9px;font-weight:400;color:var(--t3);}
+.bfm-fdetail{font-size:10px;color:var(--t2);margin-top:2px;line-height:1.5;}
+.bfm-fpts{flex-shrink:0;font-size:12px;font-weight:700;min-width:38px;text-align:right;}
+.bfm-fpts.hi{color:var(--suc);}
+.bfm-fpts.lo{color:var(--dng);}
+.bfm-fpts.nu{color:var(--t2);}
+.bfm-f6grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:6px;}
+.bfm-f6cell{border-radius:6px;padding:5px 6px;border:1px solid var(--b);background:var(--s0);}
+.bfm-f6cell.ok{border-color:var(--bs);background:var(--bgs);}
+.bfm-f6cell.no{border-color:var(--bd);background:var(--bgd);}
+.bfm-f6l{font-size:8.5px;color:var(--t2);font-weight:600;text-transform:uppercase;}
+.bfm-f6v{font-size:10px;color:var(--t);margin-top:2px;}
+.bfm-f6t{font-size:9px;margin-top:2px;font-weight:600;}
+.bfm-f6cell.ok .bfm-f6t{color:var(--suc);}
+.bfm-f6cell.no .bfm-f6t{color:var(--dng);}
+.bfm-scorebox{margin-top:8px;padding:11px 13px;border-radius:8px;text-align:center;}
+.bfm-scorebox.hi{background:var(--bgs);border:1px solid var(--bs);}
+.bfm-scorebox.lo{background:var(--bgd);border:1px solid var(--bd);}
+.bfm-scoreval{font-size:24px;font-weight:700;line-height:1.1;}
+.bfm-scoreval.hi{color:var(--suc);}
+.bfm-scoreval.lo{color:var(--dng);}
+.bfm-scoredec{font-size:11px;font-weight:600;color:var(--t);margin-top:4px;line-height:1.5;}
+</style>
+<div class="bfm-overlay" onclick="if(event.target===event.currentTarget)closeBFModal()">
+  <div class="bfm-box">
+    <div class="bfm-head">
+      <div class="bfm-title">${type==='C'?'Call':'Put'} Butterfly — Strike ${fmt(K)}
+        <small>Gap ${gap} pts · First leg LTP ₹${ltp}</small></div>
+      <button class="bfm-close" onclick="closeBFModal()">✕</button>
+    </div>
+    <div class="bfm-body">
+      <div class="bfm-mgrid">
+        <div class="bfm-metric"><div class="bfm-ml">Entry BF Rate</div><div class="bfm-mv">₹${entryRate}</div></div>
+        <div class="bfm-metric"><div class="bfm-ml">First Leg LTP</div><div class="bfm-mv">₹${ltp}</div></div>
+        <div class="bfm-metric"><div class="bfm-ml">VAL%</div><div class="bfm-mv">${pct.toFixed(1)}%</div></div>
+        <div class="bfm-metric"><div class="bfm-ml">Grade</div><div class="bfm-mv"><span class="bfm-chip ${grade.tc==='ideal'?'hi':grade.tc==='pass'?'hi':grade.tc==='warn'?'mid':'lo'}">${grade.l}</span></div></div>
+      </div>
+
+      <div class="bfm-st">Trade Management</div>
+      <div class="bfm-note"><b>${guide.h}</b><br>${guide.b}</div>
+
+      <div class="bfm-st">Entry Scoring System <span style="font-weight:400;color:var(--t3);text-transform:none">(min score to enter = 60)</span></div>
+      <div>${factorRows}</div>
+      <div class="bfm-scorebox ${score.rejected?'lo':score.total>=60?'hi':'lo'}">
+        <div class="bfm-scoreval ${score.rejected?'lo':score.total>=60?'hi':'lo'}">${score.rejected?'REJECT':(score.total>=0?'+':'')+score.total}</div>
+        <div class="bfm-scoredec">${score.decision.l}</div>
+      </div>
+
+      <div class="bfm-st">Chain Concept — Simulated BF Rate by Spot Move</div>
+      <table class="bfm-tbl">
+        <thead><tr><th>Move</th><th>Sim. Spot</th><th>BF value</th><th>New FLP</th><th>VAL%</th><th>P&L/lot</th><th>Verdict</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <div class="bfm-note" style="margin-top:8px;margin-bottom:0"><b>VAL% = Entry BF Rate ÷ New FLP × 100</b> (Hold% rule) — &gt;20% Review, &gt;25% Exit. P&amp;L/lot is in points (New BF value − Entry BF Rate); multiply by lot size (${ST.lotSize}) for ₹.</div>
+      <div class="bfm-summary"><span class="bfm-chip ${overall.c}">${survive}/${total} scenarios HOLD</span>&nbsp; ${overall.l}</div>
+
+      <div class="bfm-st">Chain Concept During Trade Management</div>
+      <div class="bfm-note">
+        <b>Going ITM</b> → check chain heavily. If BF → 0 on further adverse move → EXIT. If BF stays reasonable → HOLD.<br>
+        <b>Going OTM</b> → check Value%/Hold% more; chain is less relevant once deeply OTM.<br>
+        <b>Market stabilizing</b> → chain confirms hold → collect theta.<br>
+        <b>Forward decision tree</b>: hypothetical BF &gt; 40% of entry → HOLD (survivable) · 20–40% → REVIEW (risky, watch) · &lt; 20% → EXIT NOW (chain says exit).
+      </div>
+    </div>
+  </div>
+</div>`;
+}
+
+// ── PRE-ENTRY CALIBRATION (README Part 3) ──────────────────────────
+function oiMiddleStrike(type){
+  if(!FD.chain.length||!FD.atm)return null;
+  const atm=FD.atm;
+  const cands=FD.chain.filter(r=>Math.abs(r.strike-atm)<=150&&(type==='C'?r.strike>=atm:r.strike<=atm));
+  let best=null;
+  for(const c of cands){
+    const chg=type==='C'?c.call.oiChg:c.put.oiChg;
+    if(chg>0&&(!best||chg>best.chg))best={strike:c.strike,chg};
+  }
+  return best;
+}
+function toleranceForDTE(dte){
+  if(dte<=0)return{l:'Expiry day',v:50};
+  if(dte===1)return{l:'Day before expiry',v:100};
+  if(dte<=3)return{l:'Weekly (Mon-ish)',v:225,rng:'200-250'};
+  if(dte<=8)return{l:'Next week entry',v:350,rng:'300-400'};
+  return{l:'Monthly entry',v:550,rng:'500-600'};
+}
+function rPre(){
+  document.getElementById('p-pre').innerHTML=`
+<style>
+.pec{max-width:900px;margin:0 auto;font-size:11px;}
+.pec-banner{display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,rgba(239,68,68,.16),rgba(239,68,68,.05));
+  border:1px solid var(--bd);border-left:3px solid var(--dng);border-radius:7px;padding:7px 11px;margin-bottom:10px;
+  font-size:11px;color:var(--t);}
+.pec-banner .ic{font-size:14px;line-height:1;}
+.pec-banner b{color:var(--dng);}
+/* ── Hero summary strip ── */
+.pec-hero{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:7px;margin-bottom:12px;}
+.pec-hcard{position:relative;border-radius:8px;padding:8px 10px;overflow:hidden;
+  background:var(--s1);border:1px solid var(--b);}
+.pec-hcard::before{content:'';position:absolute;inset:0;opacity:.5;background:var(--pec-grad,none);pointer-events:none;}
+.pec-hcard.g1{--pec-grad:linear-gradient(135deg,rgba(59,130,246,.18),transparent 65%);border-color:var(--ba);}
+.pec-hcard.g2{--pec-grad:linear-gradient(135deg,rgba(168,85,247,.16),transparent 65%);border-color:#4c2a7a;}
+.pec-hcard.g3{--pec-grad:linear-gradient(135deg,rgba(34,197,94,.16),transparent 65%);border-color:var(--bs);}
+.pec-hcard.g4{--pec-grad:linear-gradient(135deg,rgba(245,158,11,.18),transparent 65%);border-color:var(--bw);}
+.pec-hcard.score-hi{--pec-grad:linear-gradient(135deg,rgba(34,197,94,.22),transparent 65%);border-color:var(--bs);}
+.pec-hcard.score-mid{--pec-grad:linear-gradient(135deg,rgba(245,158,11,.2),transparent 65%);border-color:var(--bw);}
+.pec-hcard.score-lo{--pec-grad:linear-gradient(135deg,rgba(239,68,68,.14),transparent 65%);border-color:var(--bd);}
+.pec-hl{position:relative;font-size:8.5px;font-weight:700;color:var(--t2);text-transform:uppercase;
+  letter-spacing:.05em;margin-bottom:3px;display:flex;align-items:center;gap:4px;}
+.pec-hl .n{display:inline-flex;align-items:center;justify-content:center;width:12px;height:12px;border-radius:50%;
+  background:var(--s2);color:var(--t2);font-size:8px;font-weight:700;}
+.pec-hv{position:relative;font-size:15px;font-weight:600;color:var(--t);letter-spacing:-.01em;line-height:1.15;}
+.pec-hs{position:relative;font-size:9px;color:var(--t2);margin-top:2px;line-height:1.4;}
+/* ── Step cards ── */
+.pec-steps{display:flex;flex-direction:column;gap:7px;}
+.pec-step{background:var(--s1);border:1px solid var(--b);border-radius:8px;overflow:hidden;}
+.pec-shead{display:flex;align-items:center;gap:7px;padding:6px 10px;border-bottom:1px solid var(--b);
+  background:var(--s0);}
+.pec-badge{flex-shrink:0;width:17px;height:17px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:700;background:var(--bga);color:var(--acc);border:1px solid var(--ba);}
+.pec-stitle{flex:1;font-size:10.5px;font-weight:600;color:var(--t);line-height:1.3;}
+.pec-ssub{font-size:8.5px;color:var(--t3);font-weight:400;margin-top:0;}
+.pec-chip{flex-shrink:0;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;white-space:nowrap;}
+.pec-chip.hi{background:var(--bgs);color:var(--suc);border:1px solid var(--bs);}
+.pec-chip.mid{background:var(--bgw);color:var(--wrn);border:1px solid var(--bw);}
+.pec-chip.lo{background:var(--bgd);color:var(--dng);border:1px solid var(--bd);}
+.pec-chip.nu{background:var(--bga);color:var(--acc);border:1px solid var(--ba);}
+.pec-sbody{padding:8px 10px;}
+.pec-mgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;}
+.pec-metric{background:var(--s0);border:1px solid var(--b);border-radius:6px;padding:6px 8px;}
+.pec-ml{font-size:8.5px;color:var(--t2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px;font-weight:600;}
+.pec-mv{font-size:12px;font-weight:600;color:var(--t);}
+.pec-mn{font-size:8.5px;color:var(--t3);margin-top:2px;line-height:1.4;}
+.pec-formula{background:var(--s0);border:1px dashed var(--b);border-radius:6px;padding:7px 10px;font-size:10.5px;
+  color:var(--t2);line-height:1.6;}
+.pec-formula b{color:var(--acc);font-weight:600;}
+.pec-note{background:var(--s0);border-left:2px solid var(--acc);border-radius:0 6px 6px 0;padding:6px 10px;
+  font-size:10px;color:var(--t2);line-height:1.6;margin-top:7px;}
+.pec-note b{color:var(--t);}
+.pec-empty{background:var(--s0);border:1px dashed var(--b);border-radius:6px;padding:8px 10px;font-size:10px;
+  color:var(--t2);line-height:1.5;text-align:center;}
+/* ── Override panel ── */
+.pec-ov{margin-top:12px;background:var(--s1);border:1px solid var(--b);border-radius:8px;overflow:hidden;}
+.pec-ov-head{display:flex;align-items:center;gap:6px;padding:7px 10px;background:var(--s0);border-bottom:1px solid var(--b);}
+.pec-ov-head .ic{font-size:11px;}
+.pec-ov-title{font-size:10px;font-weight:600;color:var(--t);}
+.pec-ov-sub{font-size:8.5px;color:var(--t3);margin-left:auto;}
+.pec-ov-body{padding:8px 10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:7px;}
+.pec-ov-fg{display:flex;flex-direction:column;gap:3px;}
+.pec-ov-fg label{font-size:9px;color:var(--t2);font-weight:500;}
+.pec-ov-fg select,.pec-ov-fg input{background:var(--s2);border:1px solid var(--b);border-radius:5px;
+  padding:5px 7px;font-size:11px;color:var(--t);font-family:var(--f);width:100%;}
+.pec-ov-fg select:focus,.pec-ov-fg input:focus{outline:none;border-color:var(--acc);}
+</style>
+<div class="pec">
+  <div id="pre-out"></div>
+  <div class="pec-ov">
+    <div class="pec-ov-head"><span class="ic">⚙</span><span class="pec-ov-title">Manual Overrides</span>
+      <span class="pec-ov-sub">Used when live Fyers data isn't connected</span></div>
+    <div class="pec-ov-body">
+      <div class="pec-ov-fg"><label>VIX direction today</label>
+        <select onchange="ST.calib.vixDirOv=this.value||null;rPreOut()">
+          <option value="" ${!ST.calib.vixDirOv?'selected':''}>Auto (from live VIX chg)</option>
+          <option value="falling" ${ST.calib.vixDirOv==='falling'?'selected':''}>Falling</option>
+          <option value="flat" ${ST.calib.vixDirOv==='flat'?'selected':''}>Flat</option>
+          <option value="rising" ${ST.calib.vixDirOv==='rising'?'selected':''}>Rising</option>
+        </select>
+      </div>
+      <div class="pec-ov-fg"><label>Today's market move (pts, ±)</label>
+        <input type="number" placeholder="${FD.chg!=null?FD.chg:'e.g. 235'}" value="${ST.calib.moveOv!=null?ST.calib.moveOv:''}"
+          oninput="ST.calib.moveOv=this.value===''?null:+this.value;rPreOut()"></div>
+      <div class="pec-ov-fg"><label>Events today</label>
+        <select onchange="ST.calib.events=(this.value==='1');rPreOut()">
+          <option value="0" ${!ST.calib.events?'selected':''}>None</option>
+          <option value="1" ${ST.calib.events?'selected':''}>Event scheduled → STOP</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>`;
+  rPreOut();
+}
+function rPreOut(){
+  const el=document.getElementById('pre-out');if(!el)return;
+  const sp=ST.aSpot,vx=ST.aVix,st=ST.aStrd,gap=ST.aGap,combo=ST.aCombo;
+  const atm=FD.atm||Math.round(sp/50)*50;
+
+  // Step 4 — adverse tolerance
+  const tol=toleranceForDTE(ST.dte);
+
+  // Step 5 — VIX check (FACTOR 2 — VIX direction, max 40 pts)
+  const vixDir=ST.calib.vixDirOv||(FD.vixChg==null?'flat':FD.vixChg<-0.05?'falling':FD.vixChg>0.05?'rising':'flat');
+  const vixRegime=vx<12?{l:'Very low',c:'lo',note:'Premiums crushed → consider back ratio'}
+    :vx<14?{l:'Normal',c:'nu',note:'Ideal debit BF zone'}
+    :vx<17?{l:'Moderate',c:'nu',note:'Good BF entry, scale carefully'}
+    :vx<=20?{l:'Elevated',c:'hi',note:'Excellent BF entry (more premium)'}
+    :{l:'High',c:'hi',note:'Scale aggressively on dips'};
+  const vixEstimated=FD.vixChg==null;
+  const vixChgVal=FD.vixChg!=null?FD.vixChg:(ST.calib.vixDirOv==='falling'?-0.6:ST.calib.vixDirOv==='rising'?0.6:0);
+  let vixScore,vixTag;
+  if(vixChgVal<0){
+    const drop=-vixChgVal;
+    if(drop>1.0){vixScore=40;vixTag='VIX falling >1.0 — best condition';}
+    else if(drop>=0.5){vixScore=25;vixTag='VIX falling 0.5–1.0';}
+    else{vixScore=10;vixTag='VIX falling 0–0.5';}
+  }else if(vixChgVal<=1.0){vixScore=0;vixTag='VIX rising 0–1.0';}
+  else{vixScore=-20;vixTag='VIX rising >1.0 — bad, avoid if possible';}
+
+  // Step 6 — overshoot ratio (FACTOR 3 — Overshoot ratio, max 40 pts)
+  const move=ST.calib.moveOv!=null?ST.calib.moveOv:(FD.chg!=null?FD.chg:0);
+  const absMove=Math.abs(move);
+  const ratio=st>0?r2(absMove/st):0;
+  const os=ratio>1.2?{l:'Ratio >1.2 — prime entry, market overshot range',c:'hi',score:40}
+    :ratio>=0.9?{l:'Ratio 0.9–1.2',c:'hi',score:20}
+    :ratio>=0.5?{l:'Ratio 0.5–0.9',c:'mid',score:5}
+    :{l:'Ratio <0.5',c:'lo',score:-10};
+
+  // Step 7 — OI-based middle strike + FACTOR 4 — Double Middle Lock (30 pts)
+  const callMid=oiMiddleStrike('C'),putMid=oiMiddleStrike('P');
+  let lockScore=0,lockTag='No live OI data',lockC='nu';
+  if(FD.chain.length){
+    if(callMid&&putMid&&callMid.strike===putMid.strike){lockScore=30;lockTag='Locked — call mid = put mid';lockC='hi';}
+    else{lockScore=0;lockTag='Not locked — call mid ≠ put mid';lockC='lo';}
+  }
+
+  // Step 8 — PCR bias + FACTOR 5 — PCR neutral zone (10 pts)
+  const pcr=FD.pcr||0;
+  const pcrBias=pcr<0.7?{l:'Bullish OI structure',note:'Shift call BF middles 50-100 pts higher than OI target. Put BFs center at/near ATM.',c:'hi'}
+    :pcr<=1.2?{l:'Neutral',note:'Symmetric placement — both sides balanced.',c:'nu'}
+    :pcr<=1.8?{l:'Bearish OI structure',note:'Put BF middles 50 pts lower than OI target. Call BFs at ATM or slightly higher.',c:'mid'}
+    :{l:'Extreme bearish',note:'Reduce call BF, increase put BF.',c:'lo'};
+  let pcrScore,pcrTag;
+  if(pcr>=0.7&&pcr<=1.3){pcrScore=10;pcrTag='PCR 0.7–1.3 — neutral, butterfly friendly';}
+  else if(pcr&&pcr<0.5){pcrScore=-10;pcrTag='PCR <0.5 — extreme, directional risk';}
+  else if(pcr>1.8){pcrScore=-10;pcrTag='PCR >1.8 — extreme, directional risk';}
+  else{pcrScore=0;pcrTag='PCR outside neutral/extreme bands';}
+
+  const totalScore=vixScore+os.score+lockScore+pcrScore;
+  const scoreCls=totalScore>=60?'score-hi':totalScore>=25?'score-mid':'score-lo';
+
+  function metric(lbl,val,note){
+    return `<div class="pec-metric"><div class="pec-ml">${lbl}</div><div class="pec-mv">${val}</div>${note?`<div class="pec-mn">${note}</div>`:''}</div>`;
+  }
+  function stepHead(n,title,sub,chip){
+    return `<div class="pec-shead"><div class="pec-badge">${n}</div>
+      <div><div class="pec-stitle">${title}</div>${sub?`<div class="pec-ssub">${sub}</div>`:''}</div>
+      ${chip?`<div class="pec-chip ${chip.c}">${chip.l}</div>`:''}</div>`;
+  }
+
+  el.innerHTML=`
+${ST.calib.events?'<div class="pec-banner"><span class="ic">⚠</span><div><b>EVENT DAY — STOP.</b> Do not enter new trades today regardless of every other signal below.</div></div>':''}
+
+<div class="pec-hero">
+  <div class="pec-hcard g1"><div class="pec-hl"><span class="n">1</span>ATM Straddle</div>
+    <div class="pec-hv">₹${fmt(st)}</div><div class="pec-hs">Call + Put LTP @ ATM ${fmt(atm)}</div></div>
+  <div class="pec-hcard g2"><div class="pec-hl"><span class="n">2</span>Recommended Gap</div>
+    <div class="pec-hv">${gap} pts</div><div class="pec-hs">${st} ÷ 2 ≈ ${r1(st/2)} → nearest 50</div></div>
+  <div class="pec-hcard g3"><div class="pec-hl"><span class="n">3</span>Combination</div>
+    <div class="pec-hv">${combo.l}</div><div class="pec-hs">Exit shows ${combo.r} per lot</div></div>
+  <div class="pec-hcard ${scoreCls}"><div class="pec-hl">Combined Entry Score</div>
+    <div class="pec-hv">${totalScore>=0?'+':''}${totalScore}</div>
+    <div class="pec-hs">VIX ${vixScore>=0?'+':''}${vixScore} · OS ${os.score>=0?'+':''}${os.score} · Lock ${lockScore>=0?'+':''}${lockScore} · PCR ${pcrScore>=0?'+':''}${pcrScore} (of max 120)</div></div>
+</div>
+
+<div class="pec-steps">
+
+<div class="pec-step">
+  ${stepHead(1,'Read ATM Straddle','Call LTP + Put LTP at the ATM strike')}
+  <div class="pec-sbody"><div class="pec-mgrid">
+    ${metric('Spot',fmt(sp))}
+    ${metric('ATM Strike',fmt(atm))}
+    ${metric('ATM Straddle','₹'+st)}
+  </div></div>
+</div>
+
+<div class="pec-step">
+  ${stepHead(2,'Calculate Recommended Gap','Gap defines the profit window')}
+  <div class="pec-sbody"><div class="pec-formula">Gap = ATM Straddle ÷ 2, rounded to nearest 50 &nbsp;→&nbsp; ${st} ÷ 2 = ${r1(st/2)} → <b>${gap} pts</b></div></div>
+</div>
+
+<div class="pec-step">
+  ${stepHead(3,'Select Combination','Higher straddle = more premium = can sell more lots')}
+  <div class="pec-sbody"><div class="pec-formula">Straddle ${st} → <b>${combo.l}</b> combination — exit shows <b>${combo.r}</b> per lot</div></div>
+</div>
+
+<div class="pec-step">
+  ${stepHead(4,'Adverse Move Tolerance','What the position can absorb without adjustment')}
+  <div class="pec-sbody"><div class="pec-mgrid">
+    ${metric('Tolerance (≈ straddle)','±'+fmt(st)+' pts')}
+    ${metric('DTE remaining',ST.dte+' day(s)')}
+    ${metric('DTE-based guide',tol.l,tol.rng?`Typical survivable range ±${tol.rng} pts`:`Survive ±${tol.v} pts`)}
+  </div></div>
+</div>
+
+<div class="pec-step">
+  ${stepHead(5,'VIX Check — Factor 2','VIX direction (max 40 pts)',{l:(vixScore>=0?'+':'')+vixScore+' pts',c:vixScore>=25?'hi':vixScore>0?'mid':'lo'})}
+  <div class="pec-sbody"><div class="pec-mgrid">
+    ${metric('VIX Level',(vx.toFixed?vx.toFixed(2):vx)+` <span class="pec-chip ${vixRegime.c}" style="font-size:9px;padding:1px 7px;vertical-align:middle">${vixRegime.l}</span>`,vixRegime.note)}
+    ${metric('Direction Today',vixDir==='falling'?'▼ Falling':vixDir==='rising'?'▲ Rising':'– Flat',FD.vixChg!=null?`Live chg: ${FD.vixChg>=0?'+':''}${FD.vixChg.toFixed(2)} (${FD.vixChgP}%)`:'Manual override / default (est.)')}
+    ${metric('Score',(vixScore>=0?'+':'')+vixScore+' / 40')}
+  </div>
+  <div class="pec-note">${vixTag}${vixEstimated?' — magnitude estimated from manual direction override.':''}</div>
+  </div>
+</div>
+
+<div class="pec-step">
+  ${stepHead(6,'Straddle Overshoot Signal — Factor 3','Overshoot ratio (max 40 pts)',{l:(os.score>=0?'+':'')+os.score+' pts',c:os.c})}
+  <div class="pec-sbody"><div class="pec-mgrid">
+    ${metric("Today's Move",(move>=0?'+':'')+r1(move)+' pts')}
+    ${metric('ATM Straddle',fmt(st))}
+    ${metric('Overshoot Ratio',ratio.toFixed(2))}
+  </div>
+  <div class="pec-note">Ratio = |${r1(move)}| ÷ ${st} = <b>${ratio.toFixed(2)}</b> — ${os.l} &nbsp;·&nbsp; Score: <b>${os.score>=0?'+':''}${os.score} / 40</b></div>
+  </div>
+</div>
+
+<div class="pec-step">
+  ${stepHead(7,'OI-Based Middle Strike — Factor 4','Double Middle Lock (30 pts)',{l:(lockScore>=0&&FD.chain.length?'+':'')+(FD.chain.length?lockScore+' pts':'—'),c:lockC})}
+  <div class="pec-sbody">
+  ${FD.chain.length?`<div class="pec-mgrid">
+    ${metric('Call BF Middle',callMid?fmt(callMid.strike):'—',callMid?`Highest +OI build above ATM (±150) · +${fmt(callMid.chg)}`:'No positive OI build found nearby — fallback to ATM')}
+    ${metric('Put BF Middle',putMid?fmt(putMid.strike):'—',putMid?`Highest +OI build below ATM (±150) · +${fmt(putMid.chg)}`:'No positive OI build found nearby — fallback to ATM')}
+    ${metric('Lock Score',(lockScore>=0?'+':'')+lockScore+' / 30',lockTag)}
+  </div>
+  <div class="pec-note">Call middle = Put middle → +30 pts (both sides peak at the same spot = maximum combined profit). Otherwise 0 pts.</div>`
+  :`<div class="pec-empty">Connect to Fyers (Exit Tool → Connect) to pull live option-chain OI change data.<br>Until then, default middle strike = ATM <b>${fmt(atm)}</b> and Lock Score = 0.</div>`}
+  </div>
+</div>
+
+<div class="pec-step">
+  ${stepHead(8,'PCR Directional Bias — Factor 5','PCR neutral zone (10 pts)',{l:(pcrScore>=0?'+':'')+pcrScore+' pts',c:pcrScore>0?'hi':pcrScore<0?'lo':'nu'})}
+  <div class="pec-sbody"><div class="pec-mgrid">
+    ${metric('PCR',pcr||'–')}
+    ${metric('Bias',pcrBias.l)}
+    ${metric('Score',(pcrScore>=0?'+':'')+pcrScore+' / 10')}
+  </div>
+  <div class="pec-note"><b>${pcrTag}</b><br>${pcrBias.note}</div>
+  </div>
+</div>
+
 </div>
 `;
 }
@@ -1238,7 +1876,7 @@ ${gRow('Net vega',vgp,r.vga,`Target: negative vega (short vol). Max abs: ${r.mvg
 // ═══════════════════════════════════════════════════════════════════
 // 8. TABS + CLOCK
 // ═══════════════════════════════════════════════════════════════════
-const rfns={exit:rExit,csim:rCsim,pos:rPos,rsk:rRsk};
+const rfns={exit:rExit,scr:rScr,pre:rPre,csim:rCsim,pos:rPos,rsk:rRsk};
 let curTab='exit';
 function doTab(id,btn){
   document.querySelectorAll('.pnl').forEach(p=>p.classList.remove('on'));
