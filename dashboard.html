@@ -322,11 +322,11 @@ const API={
   },
   quotes(syms){
     const s=Array.isArray(syms)?syms.join(','):syms;
-    return this.get(`/quotes?symbols=${encodeURIComponent(s)}`);
+    return this.get(`/api/quotes?symbols=${encodeURIComponent(s)}`);
   },
   optionChain(sym='NSE:NIFTY50-INDEX'){
     // 25 strikes each side gives comfortable coverage for Exit Tool (±500 pts)
-    return this.get(`/data/option-chain?symbol=${encodeURIComponent(sym)}&strikecount=25`);
+    return this.get(`/api/option-chain?symbol=${encodeURIComponent(sym)}&strikecount=25`);
   },
 };
 
