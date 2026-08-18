@@ -25,16 +25,20 @@ import (
 	"time"
 )
 
-// FYERS v3 splits its endpoints across two hosts:
-//   - api-t1.fyers.in — the entire auth flow: the interactive login page
-//     (generate-authcode) AND the token exchange (validate-authcode /
-//     validate-refresh-token). Hitting these on the plain api.fyers.in host
-//     instead returns a JSON 500 "Invalid Request, please provide valid
-//     method" error.
-//   - api.fyers.in     — the data/trading REST API (quotes, option chain,
-//     orders, etc.) once you already have an access token.
-const fyersAuthHost = "https://api-t1.fyers.in/api/v3"
-const fyersBase = "https://api.fyers.in/api/v3"
+// FYERS v3 is entirely on api-t1.fyers.in (confirmed straight from the
+// official fyers_apiv3 Python SDK's Config class), split across two path
+// prefixes:
+//   - /api/v3  — auth (generate-authcode, validate-authcode) and trading
+//     endpoints (orders, positions, funds, profile, ...)
+//   - /data    — market data endpoints (quotes, option chain, depth,
+//     history, market status)
+//
+// Every authenticated request also needs a "version: 3" header — omitting
+// it (or using the wrong host) is what produces FYERS's generic
+// {"s":"error","code":500,"message":"Invalid Request, please provide
+// valid method"} response.
+const fyersAPIHost = "https://api-t1.fyers.in/api/v3"
+const fyersDataHost = "https://api-t1.fyers.in/data"
 
 var (
 	fyersAppID     string
@@ -152,6 +156,7 @@ func main() {
 	mux.HandleFunc("/auth/callback", handleCallback)
 	mux.HandleFunc("/auth/status", handleStatus)
 	mux.HandleFunc("/auth/disconnect", handleDisconnect)
+	mux.HandleFunc("/api/quotes", handleQuotes)
 	mux.HandleFunc("/api/option-chain", handleOptionChain)
 	mux.HandleFunc("/api/fyers/", handleProxy)
 
@@ -196,7 +201,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	q.Set("response_type", "code")
 	q.Set("state", state)
 
-	authURL := fyersAuthHost + "/generate-authcode?" + q.Encode()
+	authURL := fyersAPIHost + "/generate-authcode?" + q.Encode()
 	http.Redirect(w, r, authURL, http.StatusFound)
 }
 
@@ -240,7 +245,7 @@ func handleCallback(w http.ResponseWriter, r *http.Request) {
 		"code":       authCode,
 	})
 
-	req, err := http.NewRequest(http.MethodPost, fyersAuthHost+"/validate-authcode", bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, fyersAPIHost+"/validate-authcode", bytes.NewReader(body))
 	if err != nil {
 		closeWith("BROKER_AUTH_ERROR", err.Error(), "")
 		return
@@ -310,20 +315,35 @@ func requireAuth(w http.ResponseWriter, r *http.Request) bool {
 
 var proxyPrefix = regexp.MustCompile(`^/api/fyers/`)
 
-// ── GET /api/fyers/<anything> → GET https://api.fyers.in/api/v3/<anything> ──
-// Covers everything the dashboard needs:
-//
-//	/api/fyers/quotes?symbols=...
-//	/api/fyers/data/option-chain?symbol=...&strikecount=...
+// ── GET /api/fyers/<anything> → GET https://api-t1.fyers.in/api/v3/<anything> ──
+// For trading/account endpoints (orders, positions, funds, profile, ...).
+// NOT for quotes/option-chain — those live under fyersDataHost, see the
+// dedicated /api/quotes and /api/option-chain routes below.
 func handleProxy(w http.ResponseWriter, r *http.Request) {
 	if !requireAuth(w, r) {
 		return
 	}
 	path := proxyPrefix.ReplaceAllString(r.URL.Path, "")
-	target := fyersBase + "/" + path
+	target := fyersAPIHost + "/" + path
 	if r.URL.RawQuery != "" {
 		target += "?" + r.URL.RawQuery
 	}
+	fetchAndRelay(w, target)
+}
+
+// ── GET /api/quotes?symbols=NSE:NIFTY50-INDEX,NSE:INDIAVIX-INDEX ──
+func handleQuotes(w http.ResponseWriter, r *http.Request) {
+	if !requireAuth(w, r) {
+		return
+	}
+	symbols := r.URL.Query().Get("symbols")
+	if symbols == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"s": "error", "message": "symbols is required"})
+		return
+	}
+	q := url.Values{}
+	q.Set("symbols", symbols)
+	target := fyersDataHost + "/quotes?" + q.Encode()
 	fetchAndRelay(w, target)
 }
 
@@ -343,7 +363,9 @@ func handleOptionChain(w http.ResponseWriter, r *http.Request) {
 	q := url.Values{}
 	q.Set("symbol", symbol)
 	q.Set("strikecount", strikecount)
-	target := fyersBase + "/data/option-chain?" + q.Encode()
+	// FYERS v3's real option-chain endpoint is /data/options-chain-v3
+	// (per the official Python SDK's Config class) — NOT /api/v3/data/option-chain.
+	target := fyersDataHost + "/options-chain-v3?" + q.Encode()
 	fetchAndRelay(w, target)
 }
 
@@ -354,6 +376,11 @@ func fetchAndRelay(w http.ResponseWriter, target string) {
 		return
 	}
 	req.Header.Set("Authorization", fyersAppID+":"+store.get())
+	req.Header.Set("Content-Type", "application/json")
+	// FYERS v3 requires this on every authenticated call — omitting it is
+	// exactly what produces the generic "Invalid Request, please provide
+	// valid method" error, same as hitting the wrong host.
+	req.Header.Set("version", "3")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
