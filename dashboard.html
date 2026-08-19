@@ -193,17 +193,13 @@ code{background:var(--s2);padding:1px 5px;border-radius:3px;font-size:11px;font-
   <button class="tab active" onclick="doTab('exit',this)">Exit Tool</button>
   <button class="tab" onclick="doTab('scr',this)">Option Chain</button>
   <button class="tab" onclick="doTab('pre',this)">Pre-Entry</button>
-  <button class="tab" onclick="doTab('csim',this)">Chain Sim</button>
   <button class="tab" onclick="doTab('pos',this)">Positions</button>
-  <button class="tab" onclick="doTab('rsk',this)">Risk</button>
 </div>
 <!-- ─── PANELS ────────────────────────────────────────────────── -->
 <div id="p-exit" class="pnl on"></div>
 <div id="p-scr" class="pnl"></div>
 <div id="p-pre" class="pnl"></div>
-<div id="p-csim" class="pnl"></div>
 <div id="p-pos"  class="pnl"></div>
-<div id="p-rsk"  class="pnl"></div>
 <div id="bf-modal-root"></div>
 
 <script>
@@ -279,8 +275,6 @@ const ST={
   strikeCount:12,autoRId:null,
   spot:24500,vix:13.5,sw:220,snw:340,sm:520,dte:4,exp:'w',lotSize:65,
   positions:[],nextId:1,selPosId:null,pendingAdd:null,
-  cs:{str:24500,type:'C',gap:100,dbt:14,flp:110},
-  rsk:{dlim:-5000,wlim:-15000,dpnl:-800,wpnl:2200,dlta:8,vga:-85,mdt:50,mvg:300},
   calib:{vixDirOv:null,moveOv:null,events:false},
   get aSpot(){return FD.spot||this.spot;},
   get aVix(){return FD.vix||this.vix;},
@@ -302,7 +296,7 @@ const ST={
 //    directly. The backend holds the access token and injects it.
 // ═══════════════════════════════════════════════════════════════════
 // ⚠️ EDIT THIS to your deployed backend's URL (no trailing slash):
-const BACKEND_URL='https://butterfly-kzpf.onrender.com';
+const BACKEND_URL='https://your-service.onrender.com';
 
 const API={
   async get(path,retries=2){
@@ -741,8 +735,21 @@ function simBF(K,type,mv,gap){
   if(type==='C')return Math.max(.5,r1(bsc(ns,K,ST.T,nv)-2*bsc(ns,K+g2,ST.T,nv)+bsc(ns,K+2*g2,ST.T,nv)));
   return Math.max(.5,r1(bsp(ns,K,ST.T,nv)-2*bsp(ns,K-g2,ST.T,nv)+bsp(ns,K-2*g2,ST.T,nv)));
 }
+// "Chain Concept": approximate what a butterfly's rate would become after
+// a spot move by reading the ACTUAL live rate at the strike that shifts
+// with the spot (K+mv) — this reflects real market skew/smile the same
+// way the live chain does, unlike a synthetic Black-Scholes reprice
+// (which is what caused this to diverge from the FYERS terminal). Falls
+// back to a theoretical BS reprice only when there's no live chain
+// (Demo mode / disconnected).
 function simScenario(K,type,mv,gap){
   const ns=ST.aSpot+mv,g2=gap||ST.aGap;
+  if(FD.connected&&FD.chain.length){
+    const K2=Math.round((K+mv)/50)*50;
+    const rate=type==='C'?cbf(K2,g2):pbf(K2,g2);
+    const flp=type==='C'?getCallLTP(K2):getPutLTP(K2);
+    return{ns,nvix:ST.aVix,rate,flp};
+  }
   const dvix=mv<0?Math.abs(mv/ST.aSpot)*75:-mv/ST.aSpot*45;
   const nvix=Math.max(8,ST.aVix+dvix);
   const nst=ST.aStrd*(nvix/ST.aVix)*(ns/ST.aSpot);
@@ -1263,68 +1270,68 @@ function openBFModal(type,K,gap,entryRate,ltp){
 
   document.getElementById('bf-modal-root').innerHTML=`
 <style>
-.bfm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px;}
-.bfm-box{width:100%;max-width:600px;max-height:88vh;overflow-y:auto;background:var(--s1);border:1px solid var(--b);
-  border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
-.bfm-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;padding:12px 16px;
+.bfm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;display:flex;align-items:center;justify-content:center;padding:10px;}
+.bfm-box{width:100%;max-width:460px;max-height:86vh;overflow-y:auto;background:var(--s1);border:1px solid var(--b);
+  border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.5);font-size:11px;}
+.bfm-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;padding:9px 12px;
   background:var(--s0);border-bottom:1px solid var(--b);}
-.bfm-title{flex:1;font-size:12.5px;font-weight:600;color:var(--t);}
-.bfm-title small{display:block;font-size:9.5px;color:var(--t3);font-weight:400;margin-top:2px;}
-.bfm-close{flex-shrink:0;width:24px;height:24px;border-radius:6px;border:1px solid var(--b);background:var(--s2);
-  color:var(--t2);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;}
+.bfm-title{flex:1;font-size:11.5px;font-weight:600;color:var(--t);}
+.bfm-title small{display:block;font-size:9px;color:var(--t3);font-weight:400;margin-top:1px;}
+.bfm-close{flex-shrink:0;width:20px;height:20px;border-radius:5px;border:1px solid var(--b);background:var(--s2);
+  color:var(--t2);cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;}
 .bfm-close:hover{background:var(--s0);color:var(--t);}
-.bfm-body{padding:14px 16px;}
-.bfm-mgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:7px;margin-bottom:12px;}
-.bfm-metric{background:var(--s0);border:1px solid var(--b);border-radius:7px;padding:7px 9px;}
-.bfm-ml{font-size:8.5px;color:var(--t2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;font-weight:600;}
-.bfm-mv{font-size:13px;font-weight:600;color:var(--t);}
-.bfm-note{background:var(--s0);border-left:3px solid var(--acc);border-radius:0 7px 7px 0;padding:9px 12px;
-  font-size:11px;color:var(--t2);line-height:1.65;margin-bottom:14px;}
+.bfm-body{padding:10px 12px;}
+.bfm-mgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(95px,1fr));gap:5px;margin-bottom:8px;}
+.bfm-metric{background:var(--s0);border:1px solid var(--b);border-radius:6px;padding:5px 7px;}
+.bfm-ml{font-size:8px;color:var(--t2);text-transform:uppercase;letter-spacing:.03em;margin-bottom:2px;font-weight:600;}
+.bfm-mv{font-size:12px;font-weight:600;color:var(--t);}
+.bfm-note{background:var(--s0);border-left:3px solid var(--acc);border-radius:0 6px 6px 0;padding:7px 9px;
+  font-size:10px;color:var(--t2);line-height:1.5;margin-bottom:9px;}
 .bfm-note b{color:var(--t);}
-.bfm-st{font-size:10.5px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.04em;
-  margin:14px 0 7px;}
-.bfm-tbl{width:100%;border-collapse:collapse;font-size:11px;}
-.bfm-tbl th{background:var(--s0);color:var(--t2);font-weight:600;padding:6px 8px;text-align:right;
-  font-size:9px;text-transform:uppercase;letter-spacing:.03em;border:1px solid var(--b);}
+.bfm-st{font-size:9.5px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.03em;
+  margin:9px 0 5px;}
+.bfm-tbl{width:100%;border-collapse:collapse;font-size:10px;}
+.bfm-tbl th{background:var(--s0);color:var(--t2);font-weight:600;padding:4px 5px;text-align:right;
+  font-size:8.5px;text-transform:uppercase;letter-spacing:.02em;border:1px solid var(--b);}
 .bfm-tbl th:first-child,.bfm-tbl td:first-child{text-align:left;}
-.bfm-tbl td{padding:6px 8px;text-align:right;border:1px solid var(--b);color:var(--t);}
+.bfm-tbl td{padding:4px 5px;text-align:right;border:1px solid var(--b);color:var(--t);}
 .bfm-tbl tbody tr:nth-child(odd) td{background:var(--s0);}
 .bfm-base td{background:rgba(0,110,95,.22)!important;font-weight:600;}
-.bfm-chip{display:inline-block;padding:1px 8px;border-radius:20px;font-size:9px;font-weight:700;}
+.bfm-chip{display:inline-block;padding:1px 7px;border-radius:20px;font-size:8.5px;font-weight:700;}
 .bfm-chip.hi{background:var(--bgs);color:var(--suc);border:1px solid var(--bs);}
 .bfm-chip.mid{background:var(--bgw);color:var(--wrn);border:1px solid var(--bw);}
 .bfm-chip.lo{background:var(--bgd);color:var(--dng);border:1px solid var(--bd);}
 .bfm-chip.nu{background:var(--bga);color:var(--acc);border:1px solid var(--ba);}
-.bfm-summary{display:flex;align-items:center;gap:8px;margin-top:10px;padding:9px 12px;border-radius:7px;
-  background:var(--s0);border:1px solid var(--b);font-size:11px;color:var(--t);}
-.bfm-frow{display:flex;align-items:flex-start;gap:9px;padding:8px 4px;border-bottom:1px solid var(--b);}
+.bfm-summary{display:flex;align-items:center;gap:7px;margin-top:7px;padding:6px 9px;border-radius:6px;
+  background:var(--s0);border:1px solid var(--b);font-size:10px;color:var(--t);}
+.bfm-frow{display:flex;align-items:flex-start;gap:7px;padding:5px 3px;border-bottom:1px solid var(--b);}
 .bfm-frow:last-child{border-bottom:none;}
-.bfm-fbadge{flex-shrink:0;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-  font-size:9px;font-weight:700;background:var(--bga);color:var(--acc);border:1px solid var(--ba);margin-top:1px;}
+.bfm-fbadge{flex-shrink:0;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:8.5px;font-weight:700;background:var(--bga);color:var(--acc);border:1px solid var(--ba);margin-top:1px;}
 .bfm-fmain{flex:1;min-width:0;}
-.bfm-flabel{font-size:11px;font-weight:600;color:var(--t);}
-.bfm-fmax{font-size:9px;font-weight:400;color:var(--t3);}
-.bfm-fdetail{font-size:10px;color:var(--t2);margin-top:2px;line-height:1.5;}
-.bfm-fpts{flex-shrink:0;font-size:12px;font-weight:700;min-width:38px;text-align:right;}
+.bfm-flabel{font-size:10px;font-weight:600;color:var(--t);}
+.bfm-fmax{font-size:8.5px;font-weight:400;color:var(--t3);}
+.bfm-fdetail{font-size:9px;color:var(--t2);margin-top:1px;line-height:1.4;}
+.bfm-fpts{flex-shrink:0;font-size:11px;font-weight:700;min-width:34px;text-align:right;}
 .bfm-fpts.hi{color:var(--suc);}
 .bfm-fpts.lo{color:var(--dng);}
 .bfm-fpts.nu{color:var(--t2);}
-.bfm-f6grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:6px;}
-.bfm-f6cell{border-radius:6px;padding:5px 6px;border:1px solid var(--b);background:var(--s0);}
+.bfm-f6grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:5px;}
+.bfm-f6cell{border-radius:5px;padding:4px 5px;border:1px solid var(--b);background:var(--s0);}
 .bfm-f6cell.ok{border-color:var(--bs);background:var(--bgs);}
 .bfm-f6cell.no{border-color:var(--bd);background:var(--bgd);}
-.bfm-f6l{font-size:8.5px;color:var(--t2);font-weight:600;text-transform:uppercase;}
-.bfm-f6v{font-size:10px;color:var(--t);margin-top:2px;}
-.bfm-f6t{font-size:9px;margin-top:2px;font-weight:600;}
+.bfm-f6l{font-size:8px;color:var(--t2);font-weight:600;text-transform:uppercase;}
+.bfm-f6v{font-size:9px;color:var(--t);margin-top:1px;}
+.bfm-f6t{font-size:8.5px;margin-top:1px;font-weight:600;}
 .bfm-f6cell.ok .bfm-f6t{color:var(--suc);}
 .bfm-f6cell.no .bfm-f6t{color:var(--dng);}
-.bfm-scorebox{margin-top:8px;padding:11px 13px;border-radius:8px;text-align:center;}
+.bfm-scorebox{margin-top:6px;padding:8px 10px;border-radius:7px;text-align:center;}
 .bfm-scorebox.hi{background:var(--bgs);border:1px solid var(--bs);}
 .bfm-scorebox.lo{background:var(--bgd);border:1px solid var(--bd);}
-.bfm-scoreval{font-size:24px;font-weight:700;line-height:1.1;}
+.bfm-scoreval{font-size:19px;font-weight:700;line-height:1.1;}
 .bfm-scoreval.hi{color:var(--suc);}
 .bfm-scoreval.lo{color:var(--dng);}
-.bfm-scoredec{font-size:11px;font-weight:600;color:var(--t);margin-top:4px;line-height:1.5;}
+.bfm-scoredec{font-size:10px;font-weight:600;color:var(--t);margin-top:3px;line-height:1.4;}
 </style>
 <div class="bfm-overlay" onclick="if(event.target===event.currentTarget)closeBFModal()">
   <div class="bfm-box">
@@ -1351,21 +1358,13 @@ function openBFModal(type,K,gap,entryRate,ltp){
         <div class="bfm-scoredec">${score.decision.l}</div>
       </div>
 
-      <div class="bfm-st">Chain Concept — Simulated BF Rate by Spot Move</div>
+      <div class="bfm-st">Chain Concept — Live BF Rate by Spot Move</div>
       <table class="bfm-tbl">
-        <thead><tr><th>Move</th><th>Sim. Spot</th><th>BF value</th><th>New FLP</th><th>VAL%</th><th>P&L/lot</th><th>Verdict</th></tr></thead>
+        <thead><tr><th>Move</th><th>Spot</th><th>BF</th><th>FLP</th><th>VAL%</th><th>P&L</th><th>Verdict</th></tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>
-      <div class="bfm-note" style="margin-top:8px;margin-bottom:0"><b>VAL% = Entry BF Rate ÷ New FLP × 100</b> (Hold% rule) — &gt;20% Review, &gt;25% Exit. P&amp;L/lot is in points (New BF value − Entry BF Rate); multiply by lot size (${ST.lotSize}) for ₹.</div>
+      <div class="bfm-note" style="margin-top:6px;margin-bottom:0"><b>VAL% = Entry Rate ÷ New FLP × 100.</b> &gt;20% Review, &gt;25% Exit. P&amp;L is points/lot; ×${ST.lotSize} for ₹. Rates read live off the chain at the shifted strike (real skew), not a theoretical reprice.</div>
       <div class="bfm-summary"><span class="bfm-chip ${overall.c}">${survive}/${total} scenarios HOLD</span>&nbsp; ${overall.l}</div>
-
-      <div class="bfm-st">Chain Concept During Trade Management</div>
-      <div class="bfm-note">
-        <b>Going ITM</b> → check chain heavily. If BF → 0 on further adverse move → EXIT. If BF stays reasonable → HOLD.<br>
-        <b>Going OTM</b> → check Value%/Hold% more; chain is less relevant once deeply OTM.<br>
-        <b>Market stabilizing</b> → chain confirms hold → collect theta.<br>
-        <b>Forward decision tree</b>: hypothetical BF &gt; 40% of entry → HOLD (survivable) · 20–40% → REVIEW (risky, watch) · &lt; 20% → EXIT NOW (chain says exit).
-      </div>
     </div>
   </div>
 </div>`;
@@ -1648,71 +1647,6 @@ ${ST.calib.events?'<div class="pec-banner"><span class="ic">⚠</span><div><b>EV
 `;
 }
 
-// ── CHAIN SIM ─────────────────────────────────────────────────────
-function rCsim(){
-  const cs=ST.cs,evp=vp(cs.dbt,cs.flp),evs=vs(evp);
-  document.getElementById('p-csim').innerHTML=`
-<div class="posform">
-<div class="st" style="margin-top:0">Your trade inputs</div>
-<div class="fr">
-  <div class="fg"><label>Strike (K)</label><input id="cs-s" type="number" value="${cs.str}" step="50" oninput="ST.cs.str=+this.value;rCsimOut()"></div>
-  <div class="fg"><label>Type</label><select onchange="ST.cs.type=this.value;rCsimOut()">
-    <option value="C" ${(cs.type||'C')==='C'?'selected':''}>Call BF</option>
-    <option value="P" ${cs.type==='P'?'selected':''}>Put BF</option></select></div>
-  <div class="fg"><label>Gap (pts)</label><input id="cs-g" type="number" value="${cs.gap}" step="50" oninput="ST.cs.gap=+this.value;rCsimOut()"></div>
-  <div class="fg"><label>Debit paid (₹)</label><input type="number" value="${cs.dbt}" step=".5" oninput="ST.cs.dbt=+this.value;rCsimOut()"></div>
-  <div class="fg"><label>FLP at entry (₹)</label><input type="number" value="${cs.flp}" step=".5" oninput="ST.cs.flp=+this.value;rCsimOut()"></div>
-</div>
-<div style="font-size:11px;margin-top:4px;color:var(--t2)">
-  Entry Value%: <b class="${evs.tc}">${evp.toFixed(1)}%</b>
-  <span class="tag ${evs.c}" style="margin-left:4px">${evs.l}</span>
-  <span style="margin-left:8px">${evp<=20?'✓ Passes Value Concept':'✗ Fails — should not have entered at this debit'}</span>
-</div>
-</div>
-<div id="csim-out"></div>`;
-  rCsimOut();
-}
-function rCsimOut(){
-  const cs=ST.cs,el=document.getElementById('csim-out');if(!el)return;
-  const type=cs.type||'C';
-  function srow(mv){
-    const ns=ST.aSpot+mv;
-    const dvix=mv<0?Math.abs(mv/ST.aSpot)*75:-mv/ST.aSpot*45;
-    const nvix=Math.max(8,ST.aVix+dvix);
-    const nst=ST.aStrd*(nvix/ST.aVix)*(ns/ST.aSpot);
-    const nv=ivol(ns,nst,ST.dte);
-    let nbf;
-    if(type==='C')nbf=Math.max(.5,r1(bsc(ns,cs.str,ST.T,nv)-2*bsc(ns,cs.str+cs.gap,ST.T,nv)+bsc(ns,cs.str+2*cs.gap,ST.T,nv)));
-    else nbf=Math.max(.5,r1(bsp(ns,cs.str,ST.T,nv)-2*bsp(ns,cs.str-cs.gap,ST.T,nv)+bsp(ns,cs.str-2*cs.gap,ST.T,nv)));
-    const nflp=r1(type==='C'?bsc(ns,cs.str,ST.T,nv):bsp(ns,cs.str,ST.T,nv));
-    const hp=vp(cs.dbt,nflp),pnl=r1(nbf-cs.dbt);
-    const istate=type==='C'?(cs.str<ns?'ITM':cs.str>ns+cs.gap*2?'OTM':'Near ATM'):(cs.str>ns?'ITM':cs.str<ns-cs.gap*2?'OTM':'Near ATM');
-    const scls=istate==='ITM'?'tm':istate==='OTM'?'to':'ta';
-    let act='';
-    if(istate==='ITM'&&Math.abs(mv)>100)act=`<span class="fail">Exit — deep ITM</span>`;
-    else if(hp>25)act=`<span class="fail">Exit — value breach</span>`;
-    else if(hp>20)act=`<span class="warn">Review now</span>`;
-    else if(pnl>cs.dbt*.8)act=`<span class="pass">Book profit</span>`;
-    else act=`<span class="pass">Hold</span>`;
-    return`<tr ${mv===0?'class="hl"':''}>
-      <td>${mv===0?'Current':mv>0?'+'+mv:mv}</td>
-      <td>${fmt(ns)}</td>
-      <td><span class="tag ${scls}">${istate}</span></td>
-      <td>${r2(nvix)} (${nvix>ST.aVix?'+':''}${r2(nvix-ST.aVix)})</td>
-      <td>${nbf}</td><td>${nflp}</td>
-      <td class="${hp>25?'fail':hp>20?'warn':'pass'}">${hp.toFixed(1)}%</td>
-      <td style="color:${pnl>=0?'var(--suc)':'var(--dng)'};font-weight:600">${pnl>=0?'+':''}${pnl}</td>
-      <td style="font-size:11px">${act}</td>
-    </tr>`;
-  }
-  el.innerHTML=`<div class="st">Scenario matrix</div>
-<div class="scrollx"><table class="tbl">
-<thead><tr><th>Move</th><th>NIFTY</th><th>Position</th><th>Est. VIX</th><th>BF value</th><th>New FLP</th><th>Hold%</th><th>P&L/lot</th><th>Decision</th></tr></thead>
-<tbody>${[-200,-150,-100,-50,0,50,100,150,200].map(srow).join('')}</tbody>
-</table></div>
-<div class="ib"><b>Hold% = Old Debit ÷ New FLP.</b> &gt;20%: exit and re-enter at closer ATM strike. &gt;25%: immediate exit. VIX rises on market falls — BF values drop but this is a scaling opportunity, not a panic signal. P&amp;L is per-lot from your entry debit.</div>`;
-}
-
 // ── PAYOFF SVG ────────────────────────────────────────────────────
 function payoffSVG(K,g,dbt,type){
   const W=380,H=120,PL=38,PR=12,PT=20,PB=24;
@@ -1880,76 +1814,10 @@ function delPos(id){
   rPos();
 }
 
-// ── RISK ──────────────────────────────────────────────────────────
-function rRsk(){
-  document.getElementById('p-rsk').innerHTML=`
-<div id="rsk-out"></div>
-<div class="div"></div>
-<div class="st">Configure limits</div>
-<div class="fr">
-  <div class="fg"><label>Daily loss limit (₹)</label><input type="number" value="${ST.rsk.dlim}" step="1000" oninput="ST.rsk.dlim=+this.value;rRskOut()"></div>
-  <div class="fg"><label>Weekly loss limit (₹)</label><input type="number" value="${ST.rsk.wlim}" step="1000" oninput="ST.rsk.wlim=+this.value;rRskOut()"></div>
-  <div class="fg"><label>Max delta (abs)</label><input type="number" value="${ST.rsk.mdt}" oninput="ST.rsk.mdt=+this.value;rRskOut()"></div>
-  <div class="fg"><label>Max vega (abs)</label><input type="number" value="${ST.rsk.mvg}" oninput="ST.rsk.mvg=+this.value;rRskOut()"></div>
-</div>
-<div class="st">Update current P&L and Greeks</div>
-<div class="fr">
-  <div class="fg"><label>Daily P&L (₹)</label><input type="number" value="${ST.rsk.dpnl}" step="100" oninput="ST.rsk.dpnl=+this.value;rRskOut()"></div>
-  <div class="fg"><label>Weekly P&L (₹)</label><input type="number" value="${ST.rsk.wpnl}" step="100" oninput="ST.rsk.wpnl=+this.value;rRskOut()"></div>
-  <div class="fg"><label>Net delta</label><input type="number" value="${ST.rsk.dlta}" oninput="ST.rsk.dlta=+this.value;rRskOut()"></div>
-  <div class="fg"><label>Net vega</label><input type="number" value="${ST.rsk.vga}" oninput="ST.rsk.vga=+this.value;rRskOut()"></div>
-</div>
-<div class="ib">Strategy is <b>positive theta + negative vega</b>. Delta &amp; gamma are auto-controlled by the butterfly structure via the Value Concept. Vega (VIX) is the only active daily risk. When VIX spikes → scale butterfly positions at cheap rates. When VIX collapses → all positions profit together. Correlation risk: if holding multiple short-vega positions, track <b>net portfolio vega</b>, not per-position.</div>`;
-  rRskOut();
-}
-function rRskOut(){
-  const r=ST.rsk,el=document.getElementById('rsk-out');if(!el)return;
-  function pnlPct(v,lim){return v<0?Math.min(100,Math.abs(v)/Math.abs(lim)*100):0;}
-  function gkPct(v,mx){return Math.min(100,Math.abs(v)/mx*100);}
-  function gc(p){return p>80?'r':p>50?'a':'g';}
-  function gRow(lbl,fill,val,note){
-    const cl=gc(fill);
-    const vc=cl==='g'?'var(--suc)':cl==='a'?'var(--wrn)':'var(--dng)';
-    return`<div class="grw">
-      <div class="grl">${lbl}</div>
-      <div class="grt"><div class="grf ${cl}" style="width:${fill.toFixed(0)}%"></div></div>
-      <div class="grv" style="color:${vc}">${val}</div>
-    </div>
-    <div class="gnote">${note} — <b>${fill.toFixed(0)}% of limit used</b></div>`;
-  }
-  const dp=pnlPct(r.dpnl,r.dlim),wp=pnlPct(r.wpnl,r.wlim);
-  const dtp=gkPct(r.dlta,r.mdt),vgp=gkPct(r.vga,r.mvg);
-  el.innerHTML=`<div class="st" style="margin-top:0">P&L vs loss limits</div>
-${gRow('Daily P&L',dp,(r.dpnl>=0?'+':'')+'₹'+Math.abs(r.dpnl).toLocaleString('en-IN'),`Limit ₹${Math.abs(r.dlim).toLocaleString('en-IN')}${r.dpnl>=0?' (in profit — 0% of limit used)':''}`)}
-${gRow('Weekly P&L',wp,(r.wpnl>=0?'+':'')+'₹'+Math.abs(r.wpnl).toLocaleString('en-IN'),`Limit ₹${Math.abs(r.wlim).toLocaleString('en-IN')}${r.wpnl>=0?' (in profit)':''}`)}
-<div class="st">Greeks exposure</div>
-${gRow('Net delta',dtp,(r.dlta>=0?'+':'')+r.dlta,`Max ±${r.mdt} — auto-controlled by Value Concept butterfly structure`)}
-${gRow('Net vega',vgp,r.vga,`Target: negative vega (short vol). Max abs: ${r.mvg}. VIX rise hurts short-term but creates scaling opportunity.`)}
-<div class="st">Status cards</div>
-<div class="cards">
-  <div class="card ${dp>80?'red':dp>50?'amber':'green'}">
-    <div class="cl">Daily limit</div>
-    <div class="cv" style="font-size:14px">${dp>80?'⚠ Critical':dp>50?'⚡ Warning':'✓ Safe'}</div>
-    <div class="cs">${dp.toFixed(0)}% used</div></div>
-  <div class="card ${vgp>80?'red':vgp>50?'amber':'green'}">
-    <div class="cl">Vega exposure</div>
-    <div class="cv" style="font-size:14px">${vgp>80?'⚠ High':vgp>50?'⚡ Scale limit':'✓ Normal'}</div>
-    <div class="cs">${vgp.toFixed(0)}% of max</div></div>
-  <div class="card ${FD.connected?'green':'amber'}">
-    <div class="cl">Data mode</div>
-    <div class="cv" style="font-size:13px">${FD.connected?'● Live':'◉ Demo'}</div>
-    <div class="cs">${FD.connected?`Updated ${FD.lastUpdated?.toLocaleTimeString('en-IN')||''}`:' BS estimates'}</div></div>
-  <div class="card">
-    <div class="cl">VIX</div>
-    <div class="cv">${ST.aVix.toFixed?ST.aVix.toFixed(2):ST.aVix}</div>
-    <div class="cs">${ST.aVix>16?'Scale zone active':ST.aVix<10?'Very low — back ratio?':'Normal range'}</div></div>
-</div>`;
-}
-
 // ═══════════════════════════════════════════════════════════════════
 // 8. TABS + CLOCK
 // ═══════════════════════════════════════════════════════════════════
-const rfns={exit:rExit,scr:rScr,pre:rPre,csim:rCsim,pos:rPos,rsk:rRsk};
+const rfns={exit:rExit,scr:rScr,pre:rPre,pos:rPos};
 let curTab='exit';
 function doTab(id,btn){
   document.querySelectorAll('.pnl').forEach(p=>p.classList.remove('on'));
