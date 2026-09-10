@@ -2,15 +2,19 @@
 // FYERS backend (Go) — OAuth + Option Chain proxy
 // Deploy this on Render as a "Web Service" (Go environment). It is the
 // only place your FYERS App ID / Secret ID / Access Token ever live —
-// the browser never sees them. Standard library only, no dependencies.
+// the browser never sees them. The access token is persisted in a Neon
+// Postgres database so it survives Render restarts/redeploys instead of
+// living only in memory.
 // ═══════════════════════════════════════════════════════════════════
 package main
 
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -23,6 +27,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	_ "github.com/lib/pq"
 )
 
 // FYERS v3 is entirely on api-t1.fyers.in (confirmed straight from the
@@ -45,45 +51,93 @@ var (
 	fyersSecretID  string
 	publicURL      string
 	frontendOrigin string
+	databaseURL    string
 	port           string
 )
 
-// ── In-memory token store (single-user tool: one dashboard, one FYERS login).
-// FYERS access tokens expire daily, so there's no need for a database —
-// just reconnect each trading morning via the Connect button. ──
+var db *sql.DB
+
+// ── Neon Postgres-backed token store (single-user tool: one dashboard,
+// one FYERS login, one row). Storing it in Postgres instead of memory
+// means the access token survives Render restarts/redeploys — you only
+// need to reconnect when FYERS itself expires the token (~daily), not
+// every time the backend redeploys. The OAuth `state` CSRF value is kept
+// in memory only — it's used and discarded within seconds of a single
+// login attempt, so it doesn't need durability. ──
 type tokenStore struct {
-	mu          sync.RWMutex
-	accessToken string
-	expiresAt   time.Time
-	state       string
+	mu    sync.RWMutex
+	state string
 }
 
 var store tokenStore
 
+func migrateDB() error {
+	_, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS fyers_token (
+			id SMALLINT PRIMARY KEY DEFAULT 1,
+			access_token TEXT NOT NULL,
+			expires_at TIMESTAMPTZ NOT NULL,
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+			CONSTRAINT fyers_token_single_row CHECK (id = 1)
+		)
+	`)
+	return err
+}
+
 func (s *tokenStore) connected() bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.accessToken != "" && time.Now().Before(s.expiresAt)
+	var expiresAt time.Time
+	err := db.QueryRow(`SELECT expires_at FROM fyers_token WHERE id = 1 AND access_token <> ''`).Scan(&expiresAt)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			log.Printf("[db] connected() query failed: %v", err)
+		}
+		return false
+	}
+	return time.Now().Before(expiresAt)
 }
 
 func (s *tokenStore) set(token string, ttl time.Duration) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.accessToken = token
-	s.expiresAt = time.Now().Add(ttl)
+	expiresAt := time.Now().Add(ttl)
+	_, err := db.Exec(`
+		INSERT INTO fyers_token (id, access_token, expires_at, updated_at)
+		VALUES (1, $1, $2, now())
+		ON CONFLICT (id) DO UPDATE SET access_token = $1, expires_at = $2, updated_at = now()
+	`, token, expiresAt)
+	if err != nil {
+		log.Printf("[db] set() failed: %v", err)
+	}
 }
 
 func (s *tokenStore) clear() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.accessToken = ""
-	s.expiresAt = time.Time{}
+	_, err := db.Exec(`DELETE FROM fyers_token WHERE id = 1`)
+	if err != nil {
+		log.Printf("[db] clear() failed: %v", err)
+	}
 }
 
 func (s *tokenStore) get() string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.accessToken
+	var token string
+	var expiresAt time.Time
+	err := db.QueryRow(`SELECT access_token, expires_at FROM fyers_token WHERE id = 1`).Scan(&token, &expiresAt)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			log.Printf("[db] get() query failed: %v", err)
+		}
+		return ""
+	}
+	if time.Now().After(expiresAt) {
+		return ""
+	}
+	return token
+}
+
+func (s *tokenStore) expiresAt() (time.Time, bool) {
+	var expiresAt time.Time
+	err := db.QueryRow(`SELECT expires_at FROM fyers_token WHERE id = 1 AND access_token <> ''`).Scan(&expiresAt)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return expiresAt, true
 }
 
 func (s *tokenStore) setState(state string) {
@@ -141,14 +195,37 @@ func main() {
 	fyersSecretID = os.Getenv("FYERS_SECRET_ID")
 	publicURL = strings.TrimRight(os.Getenv("PUBLIC_URL"), "/")
 	frontendOrigin = strings.TrimRight(os.Getenv("FRONTEND_ORIGIN"), "/")
+	databaseURL = os.Getenv("DATABASE_URL")
 	port = os.Getenv("PORT")
 	if port == "" {
 		port = "10000"
 	}
 
-	if fyersAppID == "" || fyersSecretID == "" || publicURL == "" || frontendOrigin == "" {
-		log.Fatal("Missing required env vars: FYERS_APP_ID, FYERS_SECRET_ID, PUBLIC_URL, FRONTEND_ORIGIN")
+	if fyersAppID == "" || fyersSecretID == "" || publicURL == "" || frontendOrigin == "" || databaseURL == "" {
+		log.Fatal("Missing required env vars: FYERS_APP_ID, FYERS_SECRET_ID, PUBLIC_URL, FRONTEND_ORIGIN, DATABASE_URL")
 	}
+
+	var err error
+	db, err = sql.Open("postgres", databaseURL)
+	if err != nil {
+		log.Fatalf("failed to open database: %v", err)
+	}
+	// Neon serverless connections are cheap to re-establish but not
+	// unlimited — keep the pool small; this is a single-user tool making
+	// a handful of requests per refresh cycle, not a high-traffic service.
+	db.SetMaxOpenConns(5)
+	db.SetMaxIdleConns(2)
+	db.SetConnMaxLifetime(5 * time.Minute)
+
+	pingCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := db.PingContext(pingCtx); err != nil {
+		log.Fatalf("failed to connect to Neon Postgres: %v", err)
+	}
+	if err := migrateDB(); err != nil {
+		log.Fatalf("failed to migrate database: %v", err)
+	}
+	log.Println("Connected to Neon Postgres, fyers_token table ready")
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", handleHealth)
@@ -284,11 +361,9 @@ func handleCallback(w http.ResponseWriter, r *http.Request) {
 
 // ── GET /auth/status ──
 func handleStatus(w http.ResponseWriter, r *http.Request) {
-	store.mu.RLock()
-	expiresAt := store.expiresAt
-	store.mu.RUnlock()
-	resp := map[string]any{"connected": store.connected()}
-	if !expiresAt.IsZero() {
+	connected := store.connected()
+	resp := map[string]any{"connected": connected}
+	if expiresAt, ok := store.expiresAt(); ok {
 		resp["expiresAt"] = expiresAt
 	} else {
 		resp["expiresAt"] = nil
