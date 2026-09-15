@@ -117,6 +117,46 @@ a{color:var(--acc)}
 .tbl tr.dim td{opacity:.45}
 .tbl tr:last-child td{border-bottom:none}
 .tbl tr:hover td{background:var(--s2)}
+/* ── OPTION CHAIN "PRO VIEW" TABLE ──
+   Sticky header rows (freeze vertically) + a frozen middle column-band
+   (Put LTP → P Val% → Strike → C Val% → Call LTP) that stays put while
+   the OI/IV columns on either side scroll away — the pro-terminal
+   "freeze panes" look. Column widths are fixed (colgroup) so the sticky
+   `left` offsets below line up exactly with real column boundaries. */
+.oc-wrap{overflow:auto;max-height:70vh;border:1px solid var(--b);border-radius:8px;}
+.oc-tbl{width:700px;table-layout:fixed;border-collapse:collapse;font-size:11px;}
+.oc-tbl col.oc-w-oi{width:70px;}
+.oc-tbl col.oc-w-chg{width:55px;}
+.oc-tbl col.oc-w-iv{width:45px;}
+.oc-tbl col.oc-w-ltp{width:55px;}
+.oc-tbl col.oc-w-val{width:50px;}
+.oc-tbl col.oc-w-strike{width:62px;}
+.oc-tbl col.oc-w-add{width:88px;}
+.oc-tbl th,.oc-tbl td{padding:5px 6px;border-bottom:1px solid var(--b);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.oc-tbl th{background:var(--s0);color:var(--t2);font-weight:500;font-size:10px;text-transform:uppercase;letter-spacing:.03em;text-align:left;}
+/* Sticky header rows — pinned to the top of .oc-wrap while scrolling vertically */
+.oc-tbl thead th{position:sticky;top:0;z-index:3;}
+.oc-tbl thead tr:first-child th{top:0;}
+.oc-tbl thead tr:last-child th{top:24px;}  /* stacks below the first header row's height */
+/* Sticky middle column-band — pinned to the left edge of .oc-wrap once
+   the Put OI/OI Chg/IV columns have scrolled past, so Strike + both LTPs
+   (and the Val% columns either side of Strike) never scroll out of view. */
+.oc-tbl .oc-f4{position:sticky;left:170px;z-index:2;}
+.oc-tbl .oc-f5{position:sticky;left:225px;z-index:2;}
+.oc-tbl .oc-f6{position:sticky;left:275px;z-index:2;}
+.oc-tbl .oc-f7{position:sticky;left:337px;z-index:2;}
+.oc-tbl .oc-f8{position:sticky;left:387px;z-index:2;}
+.oc-tbl thead .oc-f4,.oc-tbl thead .oc-f5,.oc-tbl thead .oc-f6,.oc-tbl thead .oc-f7,.oc-tbl thead .oc-f8{z-index:4;}
+/* Sticky cells need an opaque background matching whatever the row would
+   otherwise show, or content scrolling underneath shows through. */
+.oc-tbl tbody td.oc-f4,.oc-tbl tbody td.oc-f5,.oc-tbl tbody td.oc-f6,.oc-tbl tbody td.oc-f7,.oc-tbl tbody td.oc-f8{background:var(--s1);}
+.oc-tbl tr.hl td.oc-f4,.oc-tbl tr.hl td.oc-f5,.oc-tbl tr.hl td.oc-f6,.oc-tbl tr.hl td.oc-f7,.oc-tbl tr.hl td.oc-f8{background:color-mix(in srgb,var(--acc) 14%,var(--s1));}
+.oc-tbl tr.hl td{font-weight:600;}
+/* ITM/OTM shading, like a real broker's option chain — subtle green wash
+   over ITM CALL cells, subtle red wash over ITM PUT cells; OTM stays plain. */
+.oc-itm-c{background:var(--bgs)!important;}
+.oc-itm-p{background:var(--bgd)!important;}
+.oc-tbl tr:hover td.oc-f4,.oc-tbl tr:hover td.oc-f5,.oc-tbl tr:hover td.oc-f6,.oc-tbl tr:hover td.oc-f7,.oc-tbl tr:hover td.oc-f8{background:var(--s2);}
 /* ── TAGS ── */
 .tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600}
 .ti{background:var(--bga);color:var(--acc)}
@@ -296,7 +336,7 @@ const ST={
 //    directly. The backend holds the access token and injects it.
 // ═══════════════════════════════════════════════════════════════════
 // ⚠️ EDIT THIS to your deployed backend's URL (no trailing slash):
-const BACKEND_URL='https://butterfly-kzpf.onrender.com';
+const BACKEND_URL='https://your-service.onrender.com';
 
 const API={
   async get(path,retries=2){
@@ -928,24 +968,28 @@ function rScr(){
     const cOIChg=live?live.call.oiChg:0;const pOIChg=live?live.put.oiChg:0;
     const cBF=cbf(K,g),pBF=pbf(K,g);
     const cVP=vp(cBF,cLTP),pVP=vp(pBF,pLTP);
-    const cST=vs(cVP),pST=vs(pVP),m=mn(K,'C');
-    const isATM=m==='ATM';
+    const cST=vs(cVP),pST=vs(pVP);
+    const cM=mn(K,'C'),pM=mn(K,'P'),isATM=cM==='ATM';
     const oc=cOIChg>=0?'var(--suc)':'var(--dng)';
     const op=pOIChg>=0?'var(--suc)':'var(--dng)';
+    // ITM shading — subtle wash over the put/call side cells only when
+    // that side's leg is ITM, matching how real broker chains shade them.
+    const pITM=pM==='ITM'?' oc-itm-p':'';
+    const cITM=cM==='ITM'?' oc-itm-c':'';
     return`<tr ${isATM?'class="hl"':''}>
-<td style="text-align:right">${oibar(pOI,'p')} <span style="color:var(--dng)">${hasReal?fmt(pOI):'–'}</span></td>
-<td style="color:${op};font-size:10px">${hasReal?(pOIChg>=0?'+':'')+fmt(pOIChg):'–'}</td>
-<td style="color:var(--t3)">${pIV}</td>
-<td style="color:var(--dng);font-weight:500">${pLTP}</td>
-<td class="${pST.tc}">${pVP.toFixed(1)}%</td>
-<td style="text-align:center;font-weight:500">
-  ${fmt(K)} <span class="tag ${mc(m)}" style="font-size:9px">${m}</span>
+<td style="text-align:right" class="${pITM}">${oibar(pOI,'p')} <span style="color:var(--dng)">${hasReal?fmt(pOI):'–'}</span></td>
+<td style="color:${op};font-size:10px" class="${pITM}">${hasReal?(pOIChg>=0?'+':'')+fmt(pOIChg):'–'}</td>
+<td style="color:var(--t3)" class="${pITM}">${pIV}</td>
+<td style="color:var(--dng);font-weight:500" class="oc-f4${pITM}">${pLTP}</td>
+<td class="oc-f5 ${pST.tc}${pITM}">${pVP.toFixed(1)}%</td>
+<td class="oc-f6" style="text-align:center;font-weight:500">
+  ${fmt(K)} <span class="tag ${mc(cM)}" style="font-size:9px">${cM}</span>
 </td>
-<td class="${cST.tc}">${cVP.toFixed(1)}%</td>
-<td style="color:var(--suc);font-weight:500">${cLTP}</td>
-<td style="color:var(--t3)">${cIV}</td>
-<td style="color:${oc};font-size:10px">${hasReal?(cOIChg>=0?'+':'')+fmt(cOIChg):'–'}</td>
-<td><span style="color:var(--suc)">${hasReal?fmt(cOI):'–'}</span> ${oibar(cOI,'c')}</td>
+<td class="oc-f7 ${cST.tc}${cITM}">${cVP.toFixed(1)}%</td>
+<td style="color:var(--suc);font-weight:500" class="oc-f8${cITM}">${cLTP}</td>
+<td style="color:var(--t3)" class="${cITM}">${cIV}</td>
+<td style="color:${oc};font-size:10px" class="${cITM}">${hasReal?(cOIChg>=0?'+':'')+fmt(cOIChg):'–'}</td>
+<td class="${cITM}"><span style="color:var(--suc)">${hasReal?fmt(cOI):'–'}</span> ${oibar(cOI,'c')}</td>
 <td>
   <button class="btn btn-g" onclick="qAdd('C',${K},${g},${cBF},${cLTP})" ${cVP>25?'disabled':''}>+C</button>
   <button class="btn btn-g" onclick="qAdd('P',${K},${g},${pBF},${pLTP})" ${pVP>25?'disabled':''}>+P</button>
@@ -956,22 +1000,28 @@ function rScr(){
 <div class="ib" style="margin-bottom:8px">
   <b>Value Concept:</b> BF Rate ÷ FLP — ≤10% Ideal · ≤20% Pass · 20–25% Borderline · &gt;25% Fail (disabled).
   Gap: <b>${g} pts</b> · ATM: <b>${fmt(atm)}</b> · ${hasReal?'<b style="color:var(--suc)">● Live Fyers data</b>':'<b>Demo — Black-Scholes estimates</b>'}
+  · <span style="color:var(--suc)">▨ ITM Call</span> · <span style="color:var(--dng)">▨ ITM Put</span> shading
 </div>
-<div class="scrollx">
-<table class="tbl">
+<div class="oc-wrap">
+<table class="oc-tbl">
+<colgroup>
+  <col class="oc-w-oi"><col class="oc-w-chg"><col class="oc-w-iv"><col class="oc-w-ltp">
+  <col class="oc-w-val"><col class="oc-w-strike"><col class="oc-w-val">
+  <col class="oc-w-ltp"><col class="oc-w-iv"><col class="oc-w-chg"><col class="oc-w-oi">
+  <col class="oc-w-add">
+</colgroup>
 <thead>
 <tr>
   <th colspan="4" style="text-align:center;background:color-mix(in srgb,var(--dng) 10%,transparent)">← PUTS</th>
-  <th style="text-align:center">P Val%</th>
-  <th style="text-align:center">STRIKE</th>
-  <th style="text-align:center">C Val%</th>
+  <th class="oc-f5" style="text-align:center">P Val%</th>
+  <th class="oc-f6" style="text-align:center">STRIKE</th>
+  <th class="oc-f7" style="text-align:center">C Val%</th>
   <th colspan="5" style="text-align:center;background:color-mix(in srgb,var(--suc) 10%,transparent)">CALLS →</th>
-  <th>Add</th>
 </tr>
 <tr>
-  <th>OI ←</th><th>OI Chg</th><th>IV</th><th>LTP</th>
-  <th></th><th></th><th></th>
-  <th>LTP</th><th>IV</th><th>OI Chg</th><th>→ OI</th>
+  <th>OI ←</th><th>OI Chg</th><th>IV</th><th class="oc-f4">LTP</th>
+  <th class="oc-f5"></th><th class="oc-f6"></th><th class="oc-f7"></th>
+  <th class="oc-f8">LTP</th><th>IV</th><th>OI Chg</th><th>→ OI</th>
   <th></th>
 </tr>
 </thead>
@@ -1129,6 +1179,20 @@ function guidanceFor(tc){
   }[tc];
 }
 function computeEntryScore(K,type,gap,entryRate,ltp,valPct){
+  // PART 4.3 — FLP Minimums (Data Quality Gate). Checked BEFORE any scoring —
+  // per the doc, these gate failures mean the data itself is unusable
+  // (too deep OTM/stale, spread anomaly, or crushed premiums), not just a
+  // low-scoring setup, so they short-circuit everything below.
+  const gateFails=[];
+  if(!(ltp>8))gateFails.push(`FLP ₹${ltp} ≤ ₹8 (too deep OTM or stale data)`);
+  if(!(entryRate>0.5))gateFails.push(`BF Rate ₹${entryRate} ≤ ₹0.5 (spread too tight or pricing anomaly)`);
+  if(!(ST.aStrd>50))gateFails.push(`ATM Straddle ₹${ST.aStrd} ≤ ₹50 (premiums crushed — back-ratio zone, not BF)`);
+  if(gateFails.length){
+    return{factors:[],total:-999,
+      decision:{l:`SKIP — Data Quality Gate failed: ${gateFails.join('; ')}`,c:'lo'},
+      rejected:true,gateFailed:true};
+  }
+
   const factors=[];
 
   // FACTOR 1 — Value% (max 60)
@@ -1199,17 +1263,27 @@ function computeEntryScore(K,type,gap,entryRate,ltp,valPct){
 
   const total=rejected?-999:factors.reduce((a,f)=>a+f.pts,0);
   let decision;
-  if(rejected)decision={l:'REJECT — Value% > 25% (hard stop, non-negotiable)',c:'lo'};
-  else if(valPct>20){
+  if(rejected){
+    decision={l:'REJECT — Value% > 25% (hard stop, non-negotiable)',c:'lo'};
+  }else if(valPct>20){
+    // Part 4.2's Borderline band (20.1–25%): enter ONLY if all 3 conditions
+    // pass, and per Part 4.4 this is ALWAYS half size — it does not scale
+    // up to normal/strong sizing by score like the ≤20% buckets below do.
     const chainOk=survivedCount>=2,vixOk=vixChg<0&&(-vixChg)>0.5,osOk=ratio>1.0;
     if(!(chainOk&&vixOk&&osOk))decision={l:`SKIP — Borderline Value% fails entry conditions (chain ${chainOk?'✓':'✗'} · VIX falling >0.5 ${vixOk?'✓':'✗'} · overshoot>1.0 ${osOk?'✓':'✗'})`,c:'lo'};
-    else if(total>=120)decision={l:'STRONG ENTRY — tiered sizing (3× base)',c:'hi'};
-    else if(total>=60)decision={l:'NORMAL ENTRY — base sizing',c:'hi'};
-    else decision={l:'SKIP — score below 60',c:'lo'};
+    else if(total<60)decision={l:'SKIP — score below 60 even though borderline conditions pass',c:'lo'};
+    else decision={l:'ENTER — HALF SIZE (0.5× base lots) — borderline Value%, all 3 conditions pass',c:'hi'};
+  }else if(total<60){
+    decision={l:'SKIP — score below 60',c:'lo'};
+  }else if(valPct<=10&&total>=120){
+    // Part 4.4: each sizing tier needs BOTH its own Value% band AND its own
+    // score floor — ≤10%/≥120 for 3×, ≤15%/≥90 for 2×, ≤20%/≥60 for 1×.
+    decision={l:'STRONG ENTRY — 3× base lots (Value% ≤10%, Score ≥120)',c:'hi'};
+  }else if(valPct<=15&&total>=90){
+    decision={l:'ENTER — 2× base lots (Value% ≤15%, Score ≥90)',c:'hi'};
+  }else{
+    decision={l:'NORMAL ENTRY — base sizing (1× base lots)',c:'hi'};
   }
-  else if(total>=120)decision={l:'STRONG ENTRY — tiered sizing (2–3× base)',c:'hi'};
-  else if(total>=60)decision={l:'NORMAL ENTRY — base sizing',c:'hi'};
-  else decision={l:'SKIP — look for a better strike/timing',c:'lo'};
 
   return{factors,total,decision,rejected};
 }
