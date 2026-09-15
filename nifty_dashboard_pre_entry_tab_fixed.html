@@ -1,0 +1,1924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NIFTY Options Dashboard — Fyers Live</title>
+<style>
+:root{
+  --bg:#0d0d0d;--s0:#111;--s1:#1a1a1a;--s2:#222;--s3:#2a2a2a;
+  --b:#2e2e2e;--ba:#1e3a8a;--bs:#14532d;--bw:#78350f;--bd:#7f1d1d;
+  --t:#e8e8e8;--t2:#888;--t3:#555;
+  --acc:#3b82f6;--suc:#22c55e;--wrn:#f59e0b;--dng:#ef4444;
+  --bga:rgba(59,130,246,.13);--bgs:rgba(34,197,94,.11);
+  --bgw:rgba(245,158,11,.11);--bgd:rgba(239,68,68,.11);
+  --f:system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--t);font-family:var(--f);font-size:13px}
+a{color:var(--acc)}
+/* ── HEADER ── */
+#hbar{display:flex;align-items:center;gap:6px;padding:8px 14px;
+  background:var(--s1);border-bottom:1px solid var(--b);flex-wrap:wrap;position:sticky;top:0;z-index:10}
+/* ── Header Connect button + OAuth popover (mirrors the FyersAuth popup mechanism) ── */
+#hc-wrap{position:relative;order:99;}
+.hc-btn{display:flex;align-items:center;gap:6px;padding:6px 13px;border-radius:6px;font-size:12px;font-weight:600;
+  border:1px solid var(--b);cursor:pointer;transition:filter .12s;white-space:nowrap;}
+.hc-btn:hover{filter:brightness(1.12);}
+.hc-btn:disabled{cursor:default;opacity:.75;}
+.hc-btn.off{background:var(--acc);color:#fff;border-color:var(--acc);}
+.hc-btn.on{background:var(--bgs);color:var(--suc);border-color:var(--bs);}
+.hc-btn .spin{width:11px;height:11px;border-width:2px;}
+.hc-pop{position:absolute;right:0;top:calc(100% + 8px);width:300px;background:var(--s1);border:1px solid var(--b);
+  border-radius:9px;box-shadow:0 10px 32px rgba(0,0,0,.45);padding:14px;z-index:50;}
+.hc-pop-title{font-size:13px;font-weight:600;color:var(--t);margin-bottom:2px;display:flex;align-items:center;gap:7px;}
+.hc-pop-sub{font-size:11px;color:var(--t2);margin-bottom:10px;line-height:1.5;}
+.hc-pop label{display:block;font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.04em;margin:9px 0 4px;}
+.hc-pop input{width:100%;box-sizing:border-box;padding:7px 9px;border-radius:5px;border:1px solid var(--b);
+  background:var(--s0);color:var(--t);font-family:inherit;font-size:12px;}
+.hc-pop input:disabled{opacity:.6;}
+.hc-hint{font-size:10px;color:var(--t2);margin-top:4px;line-height:1.5;}
+.hc-hint code{background:var(--s0);border:1px solid var(--b);border-radius:3px;padding:1px 4px;font-size:10px;}
+.hc-go{width:100%;margin-top:13px;padding:9px;border-radius:6px;border:none;background:var(--acc);color:#fff;
+  font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;}
+.hc-go:disabled{opacity:.55;cursor:default;}
+.hc-connected{padding:2px 0;}
+.hc-connected .hc-row{font-size:11px;color:var(--t2);margin-bottom:10px;}
+.hc-dc{width:100%;padding:8px;border-radius:6px;border:1px solid var(--b);background:transparent;color:var(--t);
+  font-size:12px;cursor:pointer;}
+.hc-dc:hover{border-color:var(--dng);color:var(--dng);}
+.hc-pulse{font-size:10px;color:var(--acc);margin-top:8px;text-align:center;}
+/* ── Toasts (mirrors sonner toast.success/toast.error from the auth flow) ── */
+#hc-toasts{position:fixed;top:56px;right:14px;z-index:100;display:flex;flex-direction:column;gap:7px;align-items:flex-end;}
+.hc-toast{padding:8px 13px;border-radius:6px;font-size:12px;font-weight:500;box-shadow:0 6px 18px rgba(0,0,0,.4);
+  animation:hcIn .15s ease-out;max-width:300px;}
+.hc-toast.suc{background:var(--bgs);color:var(--suc);border:1px solid var(--bs);}
+.hc-toast.err{background:#3a1414;color:#ff8080;border:1px solid #6a2323;}
+@keyframes hcIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
+.hm{display:flex;flex-direction:column;padding:3px 8px;border:1px solid var(--b);border-radius:5px;min-width:72px}
+.hm .hl{font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.05em}
+.hm .hv{font-size:13px;font-weight:500}
+.h-exp-sel{background:transparent;border:none;color:var(--t);font-size:12px;font-weight:500;
+  font-family:var(--f);padding:0;margin:0;cursor:pointer;max-width:120px;}
+.h-exp-sel:focus{outline:none;}
+.h-exp-sel option{background:var(--s1);color:var(--t);}
+.badge{padding:2px 9px;border-radius:20px;font-size:10px;font-weight:600}
+.live{background:var(--bgs);color:var(--suc);border:1px solid var(--bs)}
+.demo{background:var(--bgw);color:var(--wrn);border:1px solid var(--bw)}
+.err{background:var(--bgd);color:var(--dng);border:1px solid var(--bd)}
+.rb-sw{background:var(--bga);color:var(--acc);border:1px solid var(--ba)}
+.rb-hv{background:var(--bgw);color:var(--wrn);border:1px solid var(--bw)}
+/* ── TABS ── */
+#tabs{display:flex;background:var(--s1);border-bottom:1px solid var(--b);overflow-x:auto;position:sticky;top:45px;z-index:9}
+.tab{padding:9px 13px;font-size:11px;font-weight:500;border:none;background:none;
+  color:var(--t2);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;font-family:var(--f)}
+.tab.active{color:var(--acc);border-bottom-color:var(--acc)}
+.tab:hover:not(.active){color:var(--t)}
+/* ── PANELS ── */
+.pnl{display:none;padding:14px 14px 30px;max-width:1200px;margin:0 auto}
+.pnl.on{display:block}
+/* ── SECTION TITLES ── */
+.st{font-size:10px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.05em;
+  margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--b)}
+.st:first-child{margin-top:0}
+/* ── CARDS ── */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:8px}
+.card{background:var(--s1);border:1px solid var(--b);border-radius:8px;padding:10px 12px}
+.cl{font-size:10px;color:var(--t2);margin-bottom:3px}
+.cv{font-size:18px;font-weight:500}
+.cs{font-size:10px;color:var(--t3);margin-top:2px}
+.card.blue{border-color:var(--ba);background:var(--bga)}.card.blue .cv{color:var(--acc)}
+.card.green{border-color:var(--bs);background:var(--bgs)}.card.green .cv{color:var(--suc)}
+.card.amber{border-color:var(--bw);background:var(--bgw)}.card.amber .cv{color:var(--wrn)}
+.card.red{border-color:var(--bd);background:var(--bgd)}.card.red .cv{color:var(--dng)}
+/* ── FORMS ── */
+.fr{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:10px}
+.fg{display:flex;flex-direction:column;gap:3px}
+.fg label{font-size:10px;color:var(--t2);font-weight:500}
+.fg input,.fg select{background:var(--s2);border:1px solid var(--b);border-radius:5px;
+  padding:6px 8px;font-size:12px;color:var(--t);font-family:var(--f);width:100%}
+.fg input:focus,.fg select:focus{outline:none;border-color:var(--acc)}
+/* ── BUTTONS ── */
+.btn{border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-weight:500;
+  cursor:pointer;font-family:var(--f);transition:opacity .15s}
+.btn:hover{opacity:.85}.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-p{background:var(--acc);color:#fff}
+.btn-s{background:var(--s2);color:var(--t);border:1px solid var(--b)}
+.btn-g{background:var(--bgs);color:var(--suc);border:1px solid var(--bs);padding:2px 8px;font-size:10px}
+.btn-r{background:var(--bgd);color:var(--dng);border:1px solid var(--bd);padding:2px 8px;font-size:10px}
+.btn-b{background:var(--bga);color:var(--acc);border:1px solid var(--ba);padding:2px 7px;font-size:10px}
+/* ── TABLE ── */
+.scrollx{overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse;font-size:11px}
+.tbl th{background:var(--s0);color:var(--t2);font-weight:500;padding:5px 7px;text-align:left;
+  border-bottom:1px solid var(--b);font-size:10px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+.tbl td{padding:6px 7px;border-bottom:1px solid var(--b);vertical-align:middle}
+.tbl tr.hl td{background:color-mix(in srgb,var(--acc) 8%,transparent);font-weight:500}
+.tbl tr.dim td{opacity:.45}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:var(--s2)}
+/* ── OPTION CHAIN "PRO VIEW" TABLE ──
+   Sticky header rows (freeze vertically) + a frozen middle column-band
+   (Put LTP → P Val% → Strike → C Val% → Call LTP) that stays put while
+   the OI/IV columns on either side scroll away — the pro-terminal
+   "freeze panes" look. Column widths are fixed (colgroup) so the sticky
+   `left` offsets below line up exactly with real column boundaries. */
+.oc-wrap{overflow:auto;max-height:70vh;border:1px solid var(--b);border-radius:8px;}
+.oc-tbl{width:700px;table-layout:fixed;border-collapse:collapse;font-size:11px;}
+.oc-tbl col.oc-w-oi{width:70px;}
+.oc-tbl col.oc-w-chg{width:55px;}
+.oc-tbl col.oc-w-iv{width:45px;}
+.oc-tbl col.oc-w-ltp{width:55px;}
+.oc-tbl col.oc-w-val{width:50px;}
+.oc-tbl col.oc-w-strike{width:62px;}
+.oc-tbl col.oc-w-add{width:88px;}
+.oc-tbl th,.oc-tbl td{padding:5px 6px;border-bottom:1px solid var(--b);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.oc-tbl th{background:var(--s0);color:var(--t2);font-weight:500;font-size:10px;text-transform:uppercase;letter-spacing:.03em;text-align:left;}
+/* Sticky header rows — pinned to the top of .oc-wrap while scrolling vertically */
+.oc-tbl thead th{position:sticky;top:0;z-index:3;}
+.oc-tbl thead tr:first-child th{top:0;}
+.oc-tbl thead tr:last-child th{top:24px;}  /* stacks below the first header row's height */
+/* Sticky middle column-band — pinned to the left edge of .oc-wrap once
+   the Put OI/OI Chg/IV columns have scrolled past, so Strike + both LTPs
+   (and the Val% columns either side of Strike) never scroll out of view. */
+.oc-tbl .oc-f4{position:sticky;left:170px;z-index:2;}
+.oc-tbl .oc-f5{position:sticky;left:225px;z-index:2;}
+.oc-tbl .oc-f6{position:sticky;left:275px;z-index:2;}
+.oc-tbl .oc-f7{position:sticky;left:337px;z-index:2;}
+.oc-tbl .oc-f8{position:sticky;left:387px;z-index:2;}
+.oc-tbl thead .oc-f4,.oc-tbl thead .oc-f5,.oc-tbl thead .oc-f6,.oc-tbl thead .oc-f7,.oc-tbl thead .oc-f8{z-index:4;}
+/* Sticky cells need an opaque background matching whatever the row would
+   otherwise show, or content scrolling underneath shows through. */
+.oc-tbl tbody td.oc-f4,.oc-tbl tbody td.oc-f5,.oc-tbl tbody td.oc-f6,.oc-tbl tbody td.oc-f7,.oc-tbl tbody td.oc-f8{background:var(--s1);}
+.oc-tbl tr.hl td.oc-f4,.oc-tbl tr.hl td.oc-f5,.oc-tbl tr.hl td.oc-f6,.oc-tbl tr.hl td.oc-f7,.oc-tbl tr.hl td.oc-f8{background:color-mix(in srgb,var(--acc) 14%,var(--s1));}
+.oc-tbl tr.hl td{font-weight:600;}
+/* ITM/OTM shading, like a real broker's option chain — subtle green wash
+   over ITM CALL cells, subtle red wash over ITM PUT cells; OTM stays plain. */
+.oc-itm-c{background:var(--bgs)!important;}
+.oc-itm-p{background:var(--bgd)!important;}
+.oc-tbl tr:hover td.oc-f4,.oc-tbl tr:hover td.oc-f5,.oc-tbl tr:hover td.oc-f6,.oc-tbl tr:hover td.oc-f7,.oc-tbl tr:hover td.oc-f8{background:var(--s2);}
+/* ── TAGS ── */
+.tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600}
+.ti{background:var(--bga);color:var(--acc)}
+.tp{background:var(--bgs);color:var(--suc)}
+.tw{background:var(--bgw);color:var(--wrn)}
+.tf{background:var(--bgd);color:var(--dng)}
+.tm{background:var(--bgs);color:var(--suc)}
+.ta{background:var(--bgw);color:var(--wrn)}
+.to{background:var(--bga);color:var(--acc)}
+.pass{color:var(--suc);font-weight:600}
+.warn{color:var(--wrn);font-weight:600}
+.fail{color:var(--dng);font-weight:600}
+.ideal{color:var(--acc);font-weight:600}
+/* ── INFO BOX ── */
+.ib{background:var(--s0);border:1px solid var(--b);border-left:3px solid var(--acc);
+  border-radius:5px;padding:9px 11px;font-size:11px;color:var(--t2);margin-top:10px;line-height:1.7}
+.ib b,.ib strong{color:var(--t)}
+.ib.suc{border-left-color:var(--suc)}
+.ib.warn{border-left-color:var(--wrn)}
+/* ── GAUGES ── */
+.grw{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.grl{font-size:11px;color:var(--t2);width:86px;flex-shrink:0}
+.grt{flex:1;height:6px;background:var(--s0);border-radius:3px;overflow:hidden}
+.grf{height:100%;border-radius:3px;transition:width .3s}
+.grf.g{background:var(--suc)}.grf.a{background:var(--wrn)}.grf.r{background:var(--dng)}
+.grv{font-size:12px;font-weight:500;width:80px;text-align:right}
+.gnote{font-size:10px;color:var(--t3);padding-left:94px;margin-bottom:9px}
+/* ── MISC ── */
+.div{height:1px;background:var(--b);margin:12px 0}
+.rbox{background:var(--s1);border:1px solid var(--ba);border-radius:8px;padding:12px}
+.rd{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.ri .ril{font-size:10px;color:var(--t2)}
+.ri .riv{font-size:12px;font-weight:500;margin-top:1px}
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sc{background:var(--s1);border:1px solid var(--b);border-radius:7px;padding:10px}
+.sc.act{border-color:var(--acc);background:var(--bga)}
+.scn{font-size:9px;color:var(--t2);font-weight:600;text-transform:uppercase;margin-bottom:3px}
+.sct{font-size:12px;font-weight:500;margin-bottom:4px}
+.sca{font-size:10px;color:var(--t2);line-height:1.5}
+.scv{font-size:10px;color:var(--acc);margin-top:4px;font-style:italic}
+.posform{background:var(--s1);border:1px solid var(--ba);border-radius:8px;padding:12px;margin-bottom:10px}
+.oibar{height:4px;background:var(--s3);border-radius:2px;overflow:hidden;width:50px;display:inline-block;vertical-align:middle}
+.oic{height:100%;background:var(--suc);border-radius:2px}
+.oip{height:100%;background:var(--dng);border-radius:2px}
+.paysvg{width:100%;border:1px solid var(--b);border-radius:6px;background:var(--s0);display:block;margin-top:8px}
+code{background:var(--s2);padding:1px 5px;border-radius:3px;font-size:11px;font-family:monospace}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--b);border-top-color:var(--acc);
+  border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:4px}
+</style>
+</head>
+<body>
+<!-- ─── HEADER ─────────────────────────────────────────────────── -->
+<div id="hbar">
+  <div class="hm"><span class="hl">NIFTY 50</span><span class="hv" id="h-sp">–</span></div>
+  <div class="hm"><span class="hl">Expiry</span>
+    <select id="h-exp" class="h-exp-sel" onchange="onExpiryChange(this.value)"><option>–</option></select>
+  </div>
+  <div class="hm"><span class="hl">India VIX</span><span class="hv" id="h-vx">–</span></div>
+  <div class="hm"><span class="hl">ATM Straddle</span><span class="hv" id="h-st">–</span></div>
+  <div class="hm"><span class="hl">Nxt Wk Strd</span><span class="hv" id="h-snw">–</span></div>
+  <div class="hm"><span class="hl">Monthly Strd</span><span class="hv" id="h-sm">–</span></div>
+  <div class="hm"><span class="hl">PCR</span><span class="hv" id="h-pcr">–</span></div>
+  <div class="hm"><span class="hl">Max Pain</span><span class="hv" id="h-mp">–</span></div>
+  <div class="hm"><span class="hl">Gap / Combo</span><span class="hv" id="h-gc">–</span></div>
+  <span class="badge rb-sw" id="h-reg">–</span>
+  <span class="badge demo" id="h-mode">◉ DEMO</span>
+  <div class="hm" style="margin-left:auto"><span class="hl">IST</span><span class="hv" id="h-cl" style="font-size:11px">--:--:--</span></div>
+  <div id="hc-wrap"></div>
+</div>
+<div id="hc-toasts"></div>
+<!-- ─── TABS ──────────────────────────────────────────────────── -->
+<div id="tabs">
+  <button class="tab active" onclick="doTab('exit',this)">Exit Tool</button>
+  <button class="tab" onclick="doTab('scr',this)">Option Chain</button>
+  <button class="tab" onclick="doTab('pre',this)">Pre-Entry</button>
+  <button class="tab" onclick="doTab('pos',this)">Positions</button>
+</div>
+<!-- ─── PANELS ────────────────────────────────────────────────── -->
+<div id="p-exit" class="pnl on"></div>
+<div id="p-scr" class="pnl"></div>
+<div id="p-pre" class="pnl"></div>
+<div id="p-pos"  class="pnl"></div>
+<div id="bf-modal-root"></div>
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════════════════════
+// 1. MATH
+// ═══════════════════════════════════════════════════════════════════
+function ncdf(x){
+  const t=1/(1+0.2316419*Math.abs(x));
+  const d=0.3989423*Math.exp(-x*x/2);
+  let p=d*t*(0.319382+t*(-0.356564+t*(1.781478+t*(-1.821256+t*1.330274))));
+  return x>0?1-p:p;
+}
+function bsc(S,K,T,v){
+  if(T<1e-5||v<.005||K<=0)return Math.max(0,S-K);
+  const d1=(Math.log(S/K)+.5*v*v*T)/(v*Math.sqrt(T));
+  return Math.max(.05,S*ncdf(d1)-K*ncdf(d1-v*Math.sqrt(T)));
+}
+function bsp(S,K,T,v){
+  if(T<1e-5||v<.005||K<=0)return Math.max(0,K-S);
+  const d1=(Math.log(S/K)+.5*v*v*T)/(v*Math.sqrt(T));
+  return Math.max(.05,K*ncdf(v*Math.sqrt(T)-d1)-S*ncdf(-d1));
+}
+function ivol(sp,st,dte){
+  const T=Math.max(.001,dte/252);
+  return Math.min(3,Math.max(.04,st/(0.7979*sp*Math.sqrt(T))));
+}
+const r1=x=>Math.round(x*10)/10;
+const r2=x=>Math.round(x*100)/100;
+const fmt=n=>Number(n).toLocaleString('en-IN');
+function gf(o,...ks){for(const k of ks)if(o&&o[k]!=null)return+o[k]||0;return 0;}
+
+// ─── DATE / TRADING-DAY HELPER ───────────────────────────────────
+function calcDTE(expStr){
+  // Parse common Fyers expiry formats → count trading days (Mon-Fri) remaining
+  if(!expStr)return 4;
+  let d=null;
+  const mo={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+  let m;
+  // "25-Jan-2024" | "25-JAN-2024"
+  m=expStr.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/);
+  if(m)d=new Date(+m[3],mo[m[2].toLowerCase()],+m[1]);
+  // "2024-01-25"
+  if(!d){m=expStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(m)d=new Date(+m[1],+m[2]-1,+m[3]);}
+  // "25-01-2024"
+  if(!d){m=expStr.match(/^(\d{2})-(\d{2})-(\d{4})$/);if(m)d=new Date(+m[3],+m[2]-1,+m[1]);}
+  // Unix timestamp (ms or s)
+  if(!d&&/^\d{8,13}$/.test(expStr)){const ts=+expStr;d=new Date(ts>1e12?ts:ts*1000);}
+  if(!d||isNaN(d))return 4;
+  const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));
+  now.setHours(0,0,0,0);
+  const exp=new Date(d);exp.setHours(0,0,0,0);
+  let count=0;const cur=new Date(now);
+  while(cur<=exp){const wd=cur.getDay();if(wd>=1&&wd<=5)count++;cur.setDate(cur.getDate()+1);}
+  return Math.max(1,count);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 2. FYERS DATA STORE
+// ═══════════════════════════════════════════════════════════════════
+const FD={
+  connected:false,loading:false,error:null,lastUpdated:null,wsConnected:false,
+  spot:null,vix:null,expiries:[],expTs:[],selExp:0,
+  chain:[],atm:null,straddle:null,pcr:null,maxPain:null,
+  chg:null,chgP:null,open:null,high:null,low:null,
+  vixChg:null,vixChgP:null,
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// 3. STATE
+// ═══════════════════════════════════════════════════════════════════
+const ST={
+  strikeCount:12,autoRId:null,
+  spot:24500,vix:13.5,sw:220,snw:340,sm:520,dte:4,exp:'w',lotSize:65,
+  positions:[],nextId:1,selPosId:null,pendingAdd:null,
+  calib:{vixDirOv:null,moveOv:null,events:false},
+  get aSpot(){return FD.spot||this.spot;},
+  get aVix(){return FD.vix||this.vix;},
+  get aStrd(){return FD.straddle||({w:this.sw,nw:this.snw,m:this.sm}[this.exp]||this.sw);},
+  get T(){return Math.max(.001,this.dte/252);},
+  get v(){return ivol(this.aSpot,this.aStrd,this.dte);},
+  get aGap(){const s=this.aStrd;return s<=140?50:s<=240?100:s<=380?150:200;},
+  get aCombo(){const s=this.aStrd;return s<=160?{l:'1:2',r:2.0}:s<=280?{l:'2:3',r:1.5}:{l:'3:4',r:1.33};},
+  get regime(){return this.aVix>20?{l:'High Vol',c:'rb-hv'}:this.aVix>14?{l:'Moderate',c:'rb-sw'}:{l:'Low Vol',c:'rb-sw'};},
+  get isOpen(){
+    const i=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));
+    const d=i.getDay(),m=i.getHours()*60+i.getMinutes();
+    return d>=1&&d<=5&&m>=555&&m<=930;
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// 4. FYERS API LAYER — talks to YOUR backend on Render, never to FYERS
+//    directly. The backend holds the access token and injects it.
+// ═══════════════════════════════════════════════════════════════════
+// ⚠️ EDIT THIS to your deployed backend's URL (no trailing slash):
+const BACKEND_URL='https://your-service.onrender.com';
+
+const API={
+  async get(path,retries=2){
+    const ctrl=new AbortController();
+    const tid=setTimeout(()=>ctrl.abort(),12000);  // 12-second timeout
+    try{
+      const r=await fetch(BACKEND_URL+path,{method:'GET',mode:'cors',signal:ctrl.signal});
+      clearTimeout(tid);
+      const d=await r.json();
+      if(r.status===401)throw new Error(d.message||'Not connected — click Connect');
+      if(!r.ok)throw new Error(`HTTP ${r.status} — ${r.statusText}`);
+      if(d.s&&d.s!=='ok')throw new Error(d.message||d.errmsg||`Fyers: ${JSON.stringify(d).slice(0,120)}`);
+      return d;
+    }catch(e){
+      clearTimeout(tid);
+      if(retries>0&&!(e.name==='AbortError'&&retries<2)){
+        await new Promise(r=>setTimeout(r,1200*(3-retries)));
+        return this.get(path,retries-1);
+      }
+      if(e.name==='AbortError')throw new Error('Request timed out — backend may be waking up, try again');
+      throw e;
+    }
+  },
+  quotes(syms){
+    const s=Array.isArray(syms)?syms.join(','):syms;
+    return this.get(`/api/quotes?symbols=${encodeURIComponent(s)}`);
+  },
+  // timestamp: epoch-seconds for a specific expiry, omit for the nearest/current one.
+  // strikecount: 25 gives comfortable coverage for the main table (±500 pts);
+  // aux straddle-only fetches use a smaller count since they just need the ATM row.
+  optionChain(sym='NSE:NIFTY50-INDEX',timestamp=null,strikecount=25){
+    let p=`/api/option-chain?symbol=${encodeURIComponent(sym)}&strikecount=${strikecount}`;
+    if(timestamp)p+=`&timestamp=${encodeURIComponent(timestamp)}`;
+    return this.get(p);
+  },
+};
+
+// ─── FETCH ORCHESTRATOR ───────────────────────────────────────────
+async function fetchAll(){
+  FD.loading=true;FD.error=null;
+  rHdr();
+  try{
+    const qd=await API.quotes(['NSE:NIFTY50-INDEX','NSE:INDIAVIX-INDEX']);
+    parseQuotes(qd);
+
+    // Primary chain: whichever expiry is currently selected (drives the
+    // main option-chain table, ATM straddle, PCR, and Max Pain).
+    const selTs=FD.expTs&&FD.expTs[FD.selExp];
+    const od=await API.optionChain('NSE:NIFTY50-INDEX',selTs);
+    parseOC(od);
+    FD.connected=true;FD.lastUpdated=new Date();
+
+    // Aux fetches for the header's "Nxt Wk Strd" / "Monthly Strd" figures —
+    // only refreshed while browsing the nearest expiry, to avoid firing 2
+    // extra option-chain calls on every refresh while looking at another one.
+    if(FD.selExp===0&&FD.expTs&&FD.expTs.length>1){
+      fetchAuxStraddle(1,'snw').catch(()=>{});
+      const mIdx=FD.expiries.findIndex((label,i)=>i>=2&&calcDTE(label)>=20);
+      if(mIdx>=0)fetchAuxStraddle(mIdx,'sm').catch(()=>{});
+    }
+  }catch(e){
+    FD.error=e.message;
+    // Fallback: try quotes only
+    try{
+      const qd=await API.quotes(['NSE:NIFTY50-INDEX','NSE:INDIAVIX-INDEX']);
+      parseQuotes(qd);
+      FD.connected=true;FD.lastUpdated=new Date();
+      FD.error='Option chain unavailable: '+e.message;
+    }catch(e2){FD.connected=false;FD.error=e2.message;}
+  }
+  FD.loading=false;
+  rHdr();renderCur();
+}
+
+async function doRefresh(){
+  if(!FD.connected)return;
+  await fetchAll();
+}
+
+// Lightweight fetch used only to derive the ATM straddle for an expiry
+// OTHER than the one currently selected/displayed (next-week / monthly
+// header figures) — small strikecount since we only need the ATM row,
+// and it never touches FD.chain/FD.expiries (those belong to the
+// primary/selected expiry only).
+async function fetchAuxStraddle(idx,key){
+  if(!FD.expTs||FD.expTs[idx]==null)return;
+  const od=await API.optionChain('NSE:NIFTY50-INDEX',FD.expTs[idx],5);
+  const{chain,spot}=groupOptionsChain(od.data&&od.data.optionsChain||[]);
+  const sp=spot||FD.spot;
+  if(!chain.length||!sp)return;
+  const atm=chain.reduce((a,b)=>Math.abs(b.strike-sp)<Math.abs(a.strike-sp)?b:a);
+  const strd=r1((atm.call.ltp||0)+(atm.put.ltp||0));
+  if(strd>0){ST[key]=strd;rHdr();}
+}
+
+// Ask the backend whether it already holds a live token (e.g. page reload
+// after connecting earlier today) — equivalent to checkBrokerStatus() in
+// FyersAuth.tsx.
+async function checkBrokerStatus(){
+  if(!BACKEND_URL||BACKEND_URL.includes('your-service'))return;
+  try{
+    const r=await fetch(`${BACKEND_URL}/auth/status`,{mode:'cors'});
+    const d=await r.json();
+    if(d.connected&&!FD.connected){
+      await fetchAll();
+      toggleAuto(true);
+    }
+  }catch(e){/* backend asleep or unreachable — ignore, user can click Connect */}
+}
+
+function doDisconnect(){
+  FD.connected=false;FD.chain=[];FD.spot=null;FD.vix=null;
+  FD.straddle=null;FD.pcr=null;FD.maxPain=null;FD.expiries=[];FD.expTs=[];
+  if(ST.autoRId){clearInterval(ST.autoRId);ST.autoRId=null;}
+  WSF.disconnect();  // Stop real-time WebSocket feed
+  if(BACKEND_URL&&!BACKEND_URL.includes('your-service')){
+    fetch(`${BACKEND_URL}/auth/disconnect`,{method:'POST',mode:'cors'}).catch(()=>{});
+  }
+  rHdr();renderCur();
+}
+
+function toggleAuto(on){
+  if(ST.autoRId){clearInterval(ST.autoRId);ST.autoRId=null;}
+  if(on){
+    const interval=ST.isOpen?15000:60000;  // 15 s market-open, 60 s otherwise
+    ST.autoRId=setInterval(doRefresh,interval);
+    // Reschedule whenever market status may have changed
+    ST._autoChk=setInterval(()=>{
+      if(!ST.autoRId)return;
+      const want=ST.isOpen?15000:60000;
+      if(want!==ST._autoIntv){
+        clearInterval(ST.autoRId);
+        ST.autoRId=setInterval(doRefresh,want);
+        ST._autoIntv=want;
+      }
+    },60000);
+  }else{
+    if(ST._autoChk){clearInterval(ST._autoChk);ST._autoChk=null;}
+  }
+}
+
+// ─── PARSERS ─────────────────────────────────────────────────────
+function parseQuotes(data){
+  for(const item of(data.d||[])){
+    const v=item.v||{};
+    const lp=gf(v,'lp','last_price','close');
+    if(!lp)continue;
+    if(item.n==='NSE:NIFTY50-INDEX'){
+      FD.spot=lp;ST.spot=lp;
+      FD.chg=gf(v,'ch','change');FD.chgP=r2(gf(v,'chp','change_percent'));
+      FD.open=gf(v,'open');FD.high=gf(v,'high');FD.low=gf(v,'low');
+    }
+    if(item.n==='NSE:INDIAVIX-INDEX'){
+      FD.vix=r2(lp);ST.vix=r2(lp);
+      FD.vixChg=gf(v,'ch','change');FD.vixChgP=r2(gf(v,'chp','change_percent'));
+    }
+  }
+}
+
+// Groups FYERS's flat options-chain-v3 `optionsChain` array (each row is
+// ONE leg — call or put — tagged by `option_type`, all sharing the same
+// `strike_price`; plus one "index" row for the underlying with no
+// strike/option_type) into {strike, call, put} rows keyed by strike.
+// This is the actual v3 response shape (confirmed against FYERS's own
+// Python SDK + published field structs) — earlier versions of this file
+// assumed a nested callOptions/putOptions-per-strike shape that FYERS v3
+// doesn't use, which is why the chain silently came back empty.
+function groupOptionsChain(flatArr){
+  const rows={};
+  let spot=null;
+  for(const o of(flatArr||[])){
+    const K=+o.strike_price||0;
+    const ot=(o.option_type||'').toUpperCase();
+    if(K===0||!ot){
+      // The underlying/index row — no strike, no option_type.
+      const l=gf(o,'ltp','last_price');
+      if(l)spot=l;
+      continue;
+    }
+    if(!rows[K])rows[K]={strike:K,call:{ltp:0,oi:0,oiChg:0,vol:0,iv:0,delta:0,gamma:0,theta:0,vega:0,bid:0,ask:0},
+                          put:{ltp:0,oi:0,oiChg:0,vol:0,iv:0,delta:0,gamma:0,theta:0,vega:0,bid:0,ask:0}};
+    const parsed={
+      ltp:gf(o,'ltp','last_price'),
+      oi:gf(o,'oi','open_interest'),
+      oiChg:gf(o,'oich','oi_change'),
+      vol:gf(o,'volume','vol'),
+      iv:gf(o,'iv','implied_volatility'),
+      delta:gf(o,'delta'),gamma:gf(o,'gamma'),
+      theta:gf(o,'theta'),vega:gf(o,'vega'),
+      bid:gf(o,'bid'),ask:gf(o,'ask'),
+    };
+    if(ot.startsWith('C'))rows[K].call=parsed;
+    else if(ot.startsWith('P'))rows[K].put=parsed;
+  }
+  const chain=Object.values(rows).sort((a,b)=>a.strike-b.strike);
+  return{chain,spot};
+}
+
+// Normalises the raw `expiryData` list (each entry has a `date` and an
+// `expiry` field, but FYERS doesn't document which one is the epoch
+// timestamp vs the display string) into parallel label/timestamp arrays.
+function parseExpiryList(expList){
+  const labels=[],tss=[];
+  for(const e of(expList||[])){
+    let ts=null,label=null;
+    for(const key of['date','expiry']){
+      const v=e[key];
+      if(v==null||v==='')continue;
+      const s=String(v);
+      if(/^\d{9,10}$/.test(s))ts=+s;              // plausible unix seconds
+      else if(/^\d{12,13}$/.test(s))ts=Math.floor(+s/1000);  // unix ms
+      else if(label==null)label=s;
+    }
+    if(label==null)label=String(e.expiry||e.date||'');
+    labels.push(label);tss.push(ts);
+  }
+  return{labels,tss};
+}
+
+function parseOC(data){
+  const raw=data.data||{};
+  const{chain,spot}=groupOptionsChain(raw.optionsChain);
+  if(spot){FD.spot=spot;ST.spot=spot;}
+  FD.chain=chain;
+
+  const expList=raw.expiryData||[];
+  if(!expList.length)throw new Error('Empty expiryData in option chain response');
+  const{labels,tss}=parseExpiryList(expList);
+  FD.expiries=labels;FD.expTs=tss;
+
+  // Auto-calculate DTE from the selected expiry's label
+  const selIdx=Math.min(FD.selExp,labels.length-1);
+  const autoDte=calcDTE(labels[selIdx]);
+  if(autoDte>0)ST.dte=autoDte;
+
+  // ── ATM & straddle for the currently selected/displayed expiry ────
+  if(FD.spot&&FD.chain.length){
+    const atmRow=FD.chain.reduce((a,b)=>Math.abs(b.strike-FD.spot)<Math.abs(a.strike-FD.spot)?b:a);
+    FD.atm=atmRow.strike;
+    FD.straddle=r1(atmRow.call.ltp+atmRow.put.ltp);
+    if(selIdx===0)ST.sw=FD.straddle;  // "ATM Straddle" header = nearest/weekly by convention
+  }
+
+  // ── PCR ──────────────────────────────────────────────────────────
+  const cOI=FD.chain.reduce((s,c)=>s+c.call.oi,0);
+  const pOI=FD.chain.reduce((s,c)=>s+c.put.oi,0);
+  FD.pcr=cOI>0?r2(pOI/cOI):0;
+
+  // ── Max Pain ─────────────────────────────────────────────────────
+  let minL=Infinity,mp=0;
+  for(const t of FD.chain){
+    const K=t.strike;let L=0;
+    for(const o of FD.chain){
+      L+=Math.max(0,K-o.strike)*o.call.oi+Math.max(0,o.strike-K)*o.put.oi;
+    }
+    if(L<minL){minL=L;mp=K;}
+  }
+  FD.maxPain=mp;
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// 4b. FYERS WEBSOCKET REAL-TIME DATA FEED (currently unused)
+// The access token now lives only on the backend (never sent to the
+// browser), so this dashboard can't open a direct authenticated WS to
+// FYERS anymore. Live updates instead come from REST polling through
+// the backend (see toggleAuto / fetchAll). This class is kept as a
+// no-op / reference in case you later add a WS relay on the backend.
+// ═══════════════════════════════════════════════════════════════════
+const WSF={
+  ws:null, retries:0, _MAX:6, _DELAY:3000, _pingId:null,
+
+  connect(){
+    return; // disabled — see note above; live data comes from REST polling
+  },
+
+  _open(){
+    if(this.ws){try{this.ws.close();}catch(e){}}
+    try{
+      // Fyers data-feed WebSocket (v2 socket) — direct connection.
+      // Left in place for reference; unreachable from connect() above since
+      // the browser no longer holds an access token to authenticate with.
+      const wsUrl='wss://api.fyers.in/socket/v2';
+      this.ws=new WebSocket(wsUrl);
+      this.ws.binaryType='arraybuffer';
+      this.ws.onopen=()=>this._onOpen();
+      this.ws.onmessage=(e)=>this._onMsg(e);
+      this.ws.onerror=()=>{};
+      this.ws.onclose=()=>this._onClose();
+    }catch(e){console.warn('[WS] connect failed:',e.message);}
+  },
+
+  _onOpen(){
+    // Authenticate — would need `${clientId}:${accessToken}` from the
+    // backend (e.g. a short-lived WS-auth endpoint) to actually work.
+    this.ws.send(JSON.stringify({T:'conn',SLIST:[],access_token:''}));
+    // Keep-alive ping every 30 s
+    this._pingId=setInterval(()=>{
+      if(this.ws&&this.ws.readyState===1)
+        this.ws.send(JSON.stringify({T:'ping'}));
+    },30000);
+  },
+
+  _onClose(){
+    FD.wsConnected=false;
+    if(this._pingId){clearInterval(this._pingId);this._pingId=null;}
+    if(FD.connected&&this.retries<this._MAX){
+      const delay=this._DELAY*Math.pow(1.6,this.retries++);
+      setTimeout(()=>this._open(),delay);
+    }
+  },
+
+  _onMsg(event){
+    // Text frame — control messages (JSON)
+    if(typeof event.data==='string'){
+      try{
+        const msg=JSON.parse(event.data);
+        if(msg.T==='conn'&&(msg.code===200||msg.s==='ok')){
+          FD.wsConnected=true;
+          // Subscribe to NIFTY spot + VIX
+          this.ws.send(JSON.stringify({
+            T:'SUB_L2',
+            SLIST:['NSE:NIFTY50-INDEX','NSE:INDIAVIX-INDEX'],
+            SUB_T:1
+          }));
+        }else if(msg.T==='error'){
+          console.warn('[WS] server error:',msg.msg||msg.message||JSON.stringify(msg));
+        }
+        // JSON-format tick (some Fyers WS versions send JSON directly)
+        if(msg.symbol||msg.n){this._applyTick(msg);}
+      }catch(e){}
+      return;
+    }
+    // Binary frame — Fyers proprietary format
+    if(event.data instanceof ArrayBuffer){
+      this._parseBinary(event.data);
+    }
+  },
+
+  _parseBinary(buf){
+    try{
+      const v=new DataView(buf);
+      if(buf.byteLength<30)return;
+      const type=v.getUint8(0);
+      if(type!==1)return;                       // 1 = index quote
+      // Fyers index tick layout (big-endian floats):
+      // [0] type  [1-4] token  [5-8] ts
+      // [9-12] open  [13-16] high  [17-20] low  [21-24] prev_close
+      // [25-28] ltp  [29-32] volume
+      const ltp=v.getFloat32(25,false);
+      if(ltp>0&&ltp<100000){
+        // We don't have the symbol name here, but index tick within NIFTY range
+        // is the only float32 at this offset within a reasonable NSE range.
+        // Cross-check: value between 10000-30000 → almost certainly NIFTY
+        if(ltp>10000&&ltp<30000){
+          FD.spot=r1(ltp);ST.spot=r1(ltp);
+          FD.lastUpdated=new Date();
+          rHdr();
+          if(curTab==='exit')rExit();
+        }
+        // VIX range 5-50
+        if(ltp>5&&ltp<50){
+          // Could be VIX — only update if different tick (no NIFTY collision at this range)
+        }
+      }
+    }catch(e){}
+  },
+
+  _applyTick(tick){
+    const sym=tick.symbol||tick.n;
+    const ltp=+(tick.lp||tick.ltp||0);
+    if(!ltp)return;
+    if(sym==='NSE:NIFTY50-INDEX'){
+      FD.spot=r1(ltp);ST.spot=r1(ltp);
+      FD.chg=+(tick.ch||tick.change||FD.chg||0);
+      FD.chgP=r2(+(tick.chp||tick.change_percent||FD.chgP||0));
+      FD.lastUpdated=new Date();
+      rHdr();
+      if(curTab==='exit')rExit();
+    }
+    if(sym==='NSE:INDIAVIX-INDEX'){
+      FD.vix=r2(ltp);ST.vix=r2(ltp);rHdr();
+    }
+  },
+
+  disconnect(){
+    if(this._pingId){clearInterval(this._pingId);this._pingId=null;}
+    if(this.ws){try{this.ws.close();}catch(e){}this.ws=null;}
+    FD.wsConnected=false;
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// 5. MARKET HELPERS
+// ═══════════════════════════════════════════════════════════════════
+function getCallLTP(K){
+  if(FD.connected&&FD.chain.length){
+    const r=FD.chain.find(c=>c.strike===K);
+    if(r&&r.call.ltp)return r1(r.call.ltp);
+  }
+  return r1(bsc(ST.aSpot,K,ST.T,ST.v));
+}
+function getPutLTP(K){
+  if(FD.connected&&FD.chain.length){
+    const r=FD.chain.find(c=>c.strike===K);
+    if(r&&r.put.ltp)return r1(r.put.ltp);
+  }
+  return r1(bsp(ST.aSpot,K,ST.T,ST.v));
+}
+function cbf(K,g){
+  const g2=g||ST.aGap;
+  return Math.max(.5,r1(getCallLTP(K)-2*getCallLTP(K+g2)+getCallLTP(K+2*g2)));
+}
+function pbf(K,g){
+  const g2=g||ST.aGap;
+  return Math.max(.5,r1(getPutLTP(K)-2*getPutLTP(K-g2)+getPutLTP(K-2*g2)));
+}
+function vp(bf,flp){return flp>0?Math.round(bf/flp*1000)/10:0;}
+function vs(p){
+  return p<=10?{c:'ti',l:'Ideal',tc:'ideal'}
+       :p<=20?{c:'tp',l:'Pass',tc:'pass'}
+       :p<=25?{c:'tw',l:'Border',tc:'warn'}
+             :{c:'tf',l:'Fail',tc:'fail'};
+}
+function mn(K,t){
+  if(t==='C')return K<ST.aSpot-8?'ITM':K>ST.aSpot+8?'OTM':'ATM';
+  return K>ST.aSpot+8?'ITM':K<ST.aSpot-8?'OTM':'ATM';
+}
+function mc(m){return m==='ITM'?'tm':m==='ATM'?'ta':'to';}
+function simBF(K,type,mv,gap){
+  const ns=ST.aSpot+mv,g2=gap||ST.aGap;
+  const dvix=mv<0?Math.abs(mv/ST.aSpot)*75:-mv/ST.aSpot*45;
+  const nvix=Math.max(8,ST.aVix+dvix);
+  const nst=ST.aStrd*(nvix/ST.aVix)*(ns/ST.aSpot);
+  const nv=ivol(ns,nst,ST.dte);
+  if(type==='C')return Math.max(.5,r1(bsc(ns,K,ST.T,nv)-2*bsc(ns,K+g2,ST.T,nv)+bsc(ns,K+2*g2,ST.T,nv)));
+  return Math.max(.5,r1(bsp(ns,K,ST.T,nv)-2*bsp(ns,K-g2,ST.T,nv)+bsp(ns,K-2*g2,ST.T,nv)));
+}
+// "Chain Concept": approximate what a butterfly's rate would become after
+// a spot move by reading the ACTUAL live rate at the strike that shifts
+// with the spot (K+mv) — this reflects real market skew/smile the same
+// way the live chain does, unlike a synthetic Black-Scholes reprice
+// (which is what caused this to diverge from the FYERS terminal). Falls
+// back to a theoretical BS reprice only when there's no live chain
+// (Demo mode / disconnected).
+function simScenario(K,type,mv,gap){
+  const ns=ST.aSpot+mv,g2=gap||ST.aGap;
+  if(FD.connected&&FD.chain.length){
+    const K2=Math.round((K+mv)/50)*50;
+    const rate=type==='C'?cbf(K2,g2):pbf(K2,g2);
+    const flp=type==='C'?getCallLTP(K2):getPutLTP(K2);
+    return{ns,nvix:ST.aVix,rate,flp};
+  }
+  const dvix=mv<0?Math.abs(mv/ST.aSpot)*75:-mv/ST.aSpot*45;
+  const nvix=Math.max(8,ST.aVix+dvix);
+  const nst=ST.aStrd*(nvix/ST.aVix)*(ns/ST.aSpot);
+  const nv=ivol(ns,nst,ST.dte);
+  let rate,flp;
+  if(type==='C'){rate=Math.max(.5,r1(bsc(ns,K,ST.T,nv)-2*bsc(ns,K+g2,ST.T,nv)+bsc(ns,K+2*g2,ST.T,nv)));flp=r1(bsc(ns,K,ST.T,nv));}
+  else{rate=Math.max(.5,r1(bsp(ns,K,ST.T,nv)-2*bsp(ns,K-g2,ST.T,nv)+bsp(ns,K-2*g2,ST.T,nv)));flp=r1(bsp(ns,K,ST.T,nv));}
+  return{ns,nvix,rate,flp};
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 6. HEADER
+// ═══════════════════════════════════════════════════════════════════
+function rHdr(){
+  const sp=ST.aSpot,vx=ST.aVix,st=ST.aStrd;
+  document.getElementById('h-sp').innerHTML=
+    `${fmt(sp)}<span style="font-size:10px;color:${(FD.chg||0)>=0?'var(--suc)':'var(--dng)'}"> ${(FD.chg||0)>=0?'▲':'▼'} ${Math.abs(FD.chg||0).toFixed(1)} (${Math.abs(FD.chgP||0).toFixed(2)}%)</span>`;
+  document.getElementById('h-vx').textContent=vx.toFixed?vx.toFixed(2):vx;
+  document.getElementById('h-st').textContent=st||'–';
+  document.getElementById('h-snw').textContent=ST.snw||'–';
+  document.getElementById('h-sm').textContent=ST.sm||'–';
+  document.getElementById('h-pcr').textContent=FD.pcr||'–';
+  document.getElementById('h-mp').textContent=FD.maxPain?fmt(FD.maxPain):'–';
+  document.getElementById('h-gc').textContent=`${ST.aGap} / ${ST.aCombo.l}`;
+  const rb=document.getElementById('h-reg');
+  rb.textContent=ST.regime.l;rb.className='badge '+ST.regime.c;
+  const mb=document.getElementById('h-mode');
+  if(FD.loading){mb.className='badge demo';mb.innerHTML='<span class="spin"></span>Fetching…';}
+  else if(FD.connected){mb.className='badge live';mb.textContent='● LIVE';}
+  else if(FD.error){mb.className='badge err';mb.textContent='✗ Error';}
+  else{mb.className='badge demo';mb.textContent='◉ DEMO';}
+  rExpirySelect();
+  rHeaderConnect();
+}
+
+// ── Header expiry selector ──────────────────────────────────────────
+function rExpirySelect(){
+  const sel=document.getElementById('h-exp');
+  if(!sel)return;
+  if(!FD.expiries.length){
+    sel.innerHTML='<option>–</option>';
+    sel.disabled=true;
+    return;
+  }
+  sel.disabled=false;
+  const opts=FD.expiries.map((label,i)=>
+    `<option value="${i}">${label}${i===0?' (Weekly)':''}</option>`).join('');
+  if(sel.innerHTML!==opts)sel.innerHTML=opts;
+  sel.value=String(FD.selExp);
+}
+
+// Switching expiry re-fetches the chain for that expiry specifically
+// (FYERS returns one expiry per call — see API.optionChain's timestamp
+// param) and re-renders whichever tab is showing the chain.
+function onExpiryChange(idxStr){
+  const idx=+idxStr;
+  if(idx===FD.selExp)return;
+  FD.selExp=idx;
+  if(FD.connected)fetchAll();
+  else renderCur();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 7. PANEL RENDERS
+// ═══════════════════════════════════════════════════════════════════
+
+// ── HEADER CONNECT (popup OAuth — driven by the FYERS backend on Render) ──
+// The backend owns FYERS_APP_ID/FYERS_SECRET_ID and the access token, so the
+// popover no longer needs App ID / Secret ID fields — just a single click.
+const HC={isConnecting:false,open:false};
+
+function hcToast(msg,type){
+  const box=document.getElementById('hc-toasts');
+  if(!box)return;
+  const d=document.createElement('div');
+  d.className='hc-toast '+(type==='error'?'err':'suc');
+  d.textContent=msg;
+  box.appendChild(d);
+  setTimeout(()=>{d.style.opacity='0';d.style.transition='opacity .25s';setTimeout(()=>d.remove(),260);},3200);
+}
+
+function toggleHcPop(force){
+  HC.open=force!=null?force:!HC.open;
+  rHeaderConnect();
+}
+
+// setIsConnecting-equivalent + full re-render of the header button/popover
+function rHeaderConnect(){
+  const wrap=document.getElementById('hc-wrap');
+  if(!wrap)return;
+  const ok=FD.connected;
+
+  const btn=ok
+    ?`<button class="hc-btn on" onclick="toggleHcPop()">● FYERS Connected</button>`
+    :`<button class="hc-btn off" onclick="handleHeaderConnect()" ${HC.isConnecting?'disabled':''}>
+        ${HC.isConnecting?'<span class="spin"></span>Opening FYERS Login…':'⚡ Connect'}
+      </button>`;
+
+  let pop='';
+  if(HC.open&&ok){
+    pop=`<div class="hc-pop">
+      <div class="hc-pop-title">✅ FYERS Connected</div>
+      <div class="hc-connected">
+        <div class="hc-row">${FD.lastUpdated?'Last synced '+FD.lastUpdated.toLocaleTimeString('en-IN'):''}</div>
+        <button class="hc-dc" onclick="doDisconnect();toggleHcPop(false)">Disconnect</button>
+      </div>
+    </div>`;
+  }
+  wrap.innerHTML=btn+pop;
+}
+
+// Mirrors handleConnect() in FyersAuth.tsx, but the popup goes straight to
+// the backend's /auth/login (which owns FYERS_APP_ID/SECRET and redirects
+// to FYERS) — no App ID / Secret ID form needed in the browser.
+async function handleHeaderConnect(){
+  if(!BACKEND_URL||BACKEND_URL.includes('your-service')){
+    hcToast('Set BACKEND_URL to your Render backend URL first','error');return;
+  }
+  HC.isConnecting=true;rHeaderConnect();
+  try{
+    const loginUrl=`${BACKEND_URL}/auth/login`;
+    const popup=window.open(loginUrl,'FyersAuth','width=600,height=700,scrollbars=yes,resizable=yes');
+
+    if(!popup){
+      hcToast('Popup blocked! Redirecting in same window...','error');
+      setTimeout(()=>{window.location.href=loginUrl;},1000);
+    }else{
+      const checkPopup=setInterval(()=>{
+        if(popup.closed){
+          clearInterval(checkPopup);
+          HC.isConnecting=false;
+          rHeaderConnect();
+        }
+      },500);
+    }
+  }catch(error){
+    hcToast(error.message||'Connection failed','error');
+    HC.isConnecting=false;rHeaderConnect();
+  }
+}
+
+// Listen for the success/error message the backend's /auth/callback page
+// posts once it has exchanged the code for a token — same contract as the
+// useEffect('message', …) handler in FyersAuth.tsx.
+window.addEventListener('message',(event)=>{
+  if(!BACKEND_URL||new URL(BACKEND_URL).origin!==event.origin)return;
+  if(event.data&&event.data.type==='BROKER_AUTH_SUCCESS'){
+    hcToast(`${event.data.brokerName||'FYERS'} connected successfully!`,'success');
+    HC.isConnecting=false;toggleHcPop(false);
+    fetchAll().then(()=>{toggleAuto(true);});
+  }else if(event.data&&event.data.type==='BROKER_AUTH_ERROR'){
+    hcToast(event.data.error||'Authentication failed','error');
+    HC.isConnecting=false;rHeaderConnect();
+  }
+});
+
+// ── OPTION CHAIN ──────────────────────────────────────────────────
+function rScr(){
+  const g=ST.aGap,sp=ST.aSpot;
+  const atm=FD.atm||Math.round(sp/50)*50;
+  const hasReal=FD.connected&&FD.chain.length>0;
+  const allStrikes=hasReal
+    ?FD.chain.map(c=>c.strike).sort((a,b)=>a-b)
+    :[...new Set([-4,-3,-2,-1,0,1,2,3,4].map(i=>Math.round((atm+i*g)/50)*50))].sort((a,b)=>a-b);
+  const maxOI=hasReal?Math.max(...FD.chain.flatMap(c=>[c.call.oi,c.put.oi]),1):1;
+  function oibar(oi,type){
+    const pct=Math.min(100,oi/maxOI*100).toFixed(0);
+    return `<div class="oibar"><div class="${type==='c'?'oic':'oip'}" style="width:${pct}%"></div></div>`;
+  }
+  function row(K){
+    const live=hasReal?FD.chain.find(c=>c.strike===K):null;
+    const cLTP=live?r1(live.call.ltp):r1(bsc(sp,K,ST.T,ST.v));
+    const pLTP=live?r1(live.put.ltp):r1(bsp(sp,K,ST.T,ST.v));
+    const cIV=live?r1(live.call.iv):'–';const pIV=live?r1(live.put.iv):'–';
+    const cOI=live?live.call.oi:0;const pOI=live?live.put.oi:0;
+    const cOIChg=live?live.call.oiChg:0;const pOIChg=live?live.put.oiChg:0;
+    const cBF=cbf(K,g),pBF=pbf(K,g);
+    const cVP=vp(cBF,cLTP),pVP=vp(pBF,pLTP);
+    const cST=vs(cVP),pST=vs(pVP);
+    const cM=mn(K,'C'),pM=mn(K,'P'),isATM=cM==='ATM';
+    const oc=cOIChg>=0?'var(--suc)':'var(--dng)';
+    const op=pOIChg>=0?'var(--suc)':'var(--dng)';
+    // ITM shading — subtle wash over the put/call side cells only when
+    // that side's leg is ITM, matching how real broker chains shade them.
+    const pITM=pM==='ITM'?' oc-itm-p':'';
+    const cITM=cM==='ITM'?' oc-itm-c':'';
+    return`<tr ${isATM?'class="hl"':''}>
+<td style="text-align:right" class="${pITM}">${oibar(pOI,'p')} <span style="color:var(--dng)">${hasReal?fmt(pOI):'–'}</span></td>
+<td style="color:${op};font-size:10px" class="${pITM}">${hasReal?(pOIChg>=0?'+':'')+fmt(pOIChg):'–'}</td>
+<td style="color:var(--t3)" class="${pITM}">${pIV}</td>
+<td style="color:var(--dng);font-weight:500" class="oc-f4${pITM}">${pLTP}</td>
+<td class="oc-f5 ${pST.tc}${pITM}">${pVP.toFixed(1)}%</td>
+<td class="oc-f6" style="text-align:center;font-weight:500">
+  ${fmt(K)} <span class="tag ${mc(cM)}" style="font-size:9px">${cM}</span>
+</td>
+<td class="oc-f7 ${cST.tc}${cITM}">${cVP.toFixed(1)}%</td>
+<td style="color:var(--suc);font-weight:500" class="oc-f8${cITM}">${cLTP}</td>
+<td style="color:var(--t3)" class="${cITM}">${cIV}</td>
+<td style="color:${oc};font-size:10px" class="${cITM}">${hasReal?(cOIChg>=0?'+':'')+fmt(cOIChg):'–'}</td>
+<td class="${cITM}"><span style="color:var(--suc)">${hasReal?fmt(cOI):'–'}</span> ${oibar(cOI,'c')}</td>
+<td>
+  <button class="btn btn-g" onclick="qAdd('C',${K},${g},${cBF},${cLTP})" ${cVP>25?'disabled':''}>+C</button>
+  <button class="btn btn-g" onclick="qAdd('P',${K},${g},${pBF},${pLTP})" ${pVP>25?'disabled':''}>+P</button>
+</td>
+</tr>`;
+  }
+  document.getElementById('p-scr').innerHTML=`
+<div class="ib" style="margin-bottom:8px">
+  <b>Value Concept:</b> BF Rate ÷ FLP — ≤10% Ideal · ≤20% Pass · 20–25% Borderline · &gt;25% Fail (disabled).
+  Gap: <b>${g} pts</b> · ATM: <b>${fmt(atm)}</b> · ${hasReal?'<b style="color:var(--suc)">● Live Fyers data</b>':'<b>Demo — Black-Scholes estimates</b>'}
+  · <span style="color:var(--suc)">▨ ITM Call</span> · <span style="color:var(--dng)">▨ ITM Put</span> shading
+</div>
+<div class="oc-wrap">
+<table class="oc-tbl">
+<colgroup>
+  <col class="oc-w-oi"><col class="oc-w-chg"><col class="oc-w-iv"><col class="oc-w-ltp">
+  <col class="oc-w-val"><col class="oc-w-strike"><col class="oc-w-val">
+  <col class="oc-w-ltp"><col class="oc-w-iv"><col class="oc-w-chg"><col class="oc-w-oi">
+  <col class="oc-w-add">
+</colgroup>
+<thead>
+<tr>
+  <th colspan="4" style="text-align:center;background:color-mix(in srgb,var(--dng) 10%,transparent)">← PUTS</th>
+  <th class="oc-f5" style="text-align:center">P Val%</th>
+  <th class="oc-f6" style="text-align:center">STRIKE</th>
+  <th class="oc-f7" style="text-align:center">C Val%</th>
+  <th colspan="5" style="text-align:center;background:color-mix(in srgb,var(--suc) 10%,transparent)">CALLS →</th>
+</tr>
+<tr>
+  <th>OI ←</th><th>OI Chg</th><th>IV</th><th class="oc-f4">LTP</th>
+  <th class="oc-f5"></th><th class="oc-f6"></th><th class="oc-f7"></th>
+  <th class="oc-f8">LTP</th><th>IV</th><th>OI Chg</th><th>→ OI</th>
+  <th></th>
+</tr>
+</thead>
+<tbody>${allStrikes.map(K=>row(K)).join('')}</tbody>
+</table></div>
+<div class="ib">Straddle (ATM call+put): <b>${ST.aStrd}</b> · PCR: <b>${FD.pcr||'–'}</b> · Max Pain: <b>${FD.maxPain?fmt(FD.maxPain):'–'}</b>. OI bars show relative open interest. +C/+P buttons add the call/put butterfly to the Position Tracker. ${hasReal?'':'Connect Fyers API to see real OI, IV, and volume.'}</div>`;
+}
+
+// ── EXIT TOOL ─────────────────────────────────────────────────────
+function rExit(){
+  const g=ST.aGap,atm=FD.atm||Math.round(ST.aSpot/50)*50;
+
+  // ITM 6 rows + ATM + OTM 10 rows = 17 rows per side, 50-pt steps
+  // Calls: ITM = strike < ATM | OTM = strike > ATM
+  // Puts : ITM = strike > ATM | OTM = strike < ATM
+  const callStrikes=[];
+  for(let i=-6;i<=10;i++) callStrikes.push(atm+i*50);
+  callStrikes.sort((a,b)=>a-b);   // ascending  -> 6 ITM, ATM, 10 OTM
+
+  const putStrikes=[];
+  for(let i=-10;i<=6;i++) putStrikes.push(atm+i*50);
+  putStrikes.sort((a,b)=>b-a);    // descending -> 6 ITM (above ATM), ATM, 10 OTM (below ATM)
+
+  // VAL% colour – matches existing vs() thresholds
+  function vc(pct){
+    return pct<=10?'var(--acc)':pct<=20?'var(--suc)':pct<=25?'var(--wrn)':'var(--dng)';
+  }
+
+  // Build one data row for the given strike & type
+  function buildRow(K,type){
+    const isATM=(K===atm);
+    // OTM: Call OTM = strike > ATM  |  Put OTM = strike < ATM
+    const isOTM=type==='C'?(K>atm):(K<atm);
+    const ltp=type==='C'?getCallLTP(K):getPutLTP(K);
+    const ltpClr=type==='C'?'var(--acc)':'#f59e0b';
+
+    // VAL% colour only for OTM; ITM/ATM rows show plain grey
+    const gapCells=[100,150,200].map(gap=>{
+      const rate=type==='C'?cbf(K,gap):pbf(K,gap);
+      const pct=vp(rate,ltp);
+      const valClr=isOTM?vc(pct):'var(--t2)';
+      return `<td class="ect-rate" onclick="openBFModal('${type}',${K},${gap},${rate},${ltp})" title="Click for VAL%, trade management & chain concept">${rate}</td>`+
+             `<td class="ect-val" style="color:${valClr}" onclick="openBFModal('${type}',${K},${gap},${rate},${ltp})" title="Click for VAL%, trade management & chain concept">${pct.toFixed(1)}%</td>`;
+    }).join('');
+
+    const bf=type==='C'?cbf(K,g):pbf(K,g);
+    const atmMark=isATM?` <span style="color:var(--acc);font-size:8px;vertical-align:middle">●</span>`:'';
+
+    return `<tr class="${isATM?'ect-atm-row':''}">
+      <td class="ect-ltp" style="color:${ltpClr}">${ltp}</td>
+      <td class="ect-strike" onclick="qAdd('${type}',${K},${g},${bf},${ltp})"
+          title="Click to add ${type} BF at ${fmt(K)}" style="cursor:pointer">
+        ${fmt(K)}${atmMark}
+      </td>
+      ${gapCells}
+    </tr>`;
+  }
+
+  const colgroup=`<colgroup>
+    <col class="c-ltp"><col class="c-strike">
+    <col class="c-data"><col class="c-data"><col class="c-data">
+    <col class="c-data"><col class="c-data"><col class="c-data">
+  </colgroup>`;
+
+  const thead=`<thead>
+    <tr>
+      <th rowspan="2" class="ect-th ect-th-ltp">LTP</th>
+      <th rowspan="2" class="ect-th ect-th-strike">Strike</th>
+      <th colspan="2" class="ect-th ect-th-gap">Gap 100</th>
+      <th colspan="2" class="ect-th ect-th-gap">Gap 150</th>
+      <th colspan="2" class="ect-th ect-th-gap ect-th-gap-box">Gap 200</th>
+    </tr>
+    <tr>
+      <th class="ect-th ect-th-sub">Rate</th>
+      <th class="ect-th ect-th-sub">VAL%</th>
+      <th class="ect-th ect-th-sub">Rate</th>
+      <th class="ect-th ect-th-sub">VAL%</th>
+      <th class="ect-th ect-th-sub">Rate</th>
+      <th class="ect-th ect-th-sub ect-th-sub-last">VAL%</th>
+    </tr>
+  </thead>`;
+
+  document.getElementById('p-exit').innerHTML=`
+<style>
+.ect-info{font-size:11px;font-weight:normal;color:var(--t2);background:var(--s0);border:1px solid var(--b);border-left:3px solid var(--acc);border-radius:5px;padding:8px 11px;margin-bottom:12px;line-height:1.7;}
+.ect-info b{color:var(--t);font-weight:500;}
+.ect-outer{display:flex;gap:14px;overflow-x:auto;align-items:flex-start;}
+.ect-side{flex:1 1 0;min-width:460px;background:var(--s1);border:1px solid var(--b);border-radius:8px;overflow:hidden;}
+.ect-side-hdr{text-align:center;padding:7px 12px;font-size:11px;font-weight:normal;color:var(--t);background:var(--s0);border-bottom:1px solid var(--b);letter-spacing:.02em;}
+.ect-dot-c{color:var(--suc);}
+.ect-dot-p{color:var(--dng);}
+/* ── Excel-style grid: table-layout fixed so columns line up perfectly,
+   every cell gets a full border (top/right/bottom/left) instead of the
+   old mix of border-left/border-bottom which left gaps in the grid. ── */
+.ect-scroll{max-height:560px;overflow-y:auto;overflow-x:hidden;}
+.ect-tbl{width:100%;table-layout:fixed;border-collapse:collapse;font-size:11px;font-weight:normal;}
+.ect-tbl col.c-ltp{width:13%;}
+.ect-tbl col.c-strike{width:15%;}
+.ect-tbl col.c-data{width:12%;}
+.ect-th,.ect-tbl td{border:1px solid var(--b);}
+.ect-th{background:var(--s0);color:var(--t2);font-weight:normal;padding:5px 6px;text-align:center;
+  font-size:10px;white-space:nowrap;letter-spacing:.03em;text-transform:uppercase;
+  position:sticky;top:0;z-index:2;overflow:hidden;text-overflow:ellipsis;}
+.ect-th-ltp{text-align:right;}
+.ect-th-gap-box{color:var(--t);}
+.ect-th-sub-last{}
+.ect-tbl td{padding:5px 6px;text-align:right;vertical-align:middle;font-weight:normal;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ect-tbl tbody tr:nth-child(even) td{background:var(--s0);}
+.ect-tbl tr:hover td{background:var(--s2)!important;}
+.ect-atm-row td{background:rgba(0,110,95,.28)!important;}
+/* frozen first two columns, like Excel's freeze-panes, so LTP/Strike
+   stay visible while the Rate/VAL% columns scroll on narrow screens */
+.ect-ltp,.ect-th-ltp{text-align:right;font-size:11px;position:sticky;left:0;z-index:1;background:var(--s1);}
+.ect-strike,.ect-th-strike{text-align:center;color:var(--t);white-space:nowrap;position:sticky;left:13%;z-index:1;background:var(--s1);}
+.ect-th-ltp,.ect-th-strike{z-index:3;background:var(--s0);}
+.ect-tbl tbody tr:nth-child(even) .ect-ltp,
+.ect-tbl tbody tr:nth-child(even) .ect-strike{background:var(--s0);}
+.ect-atm-row .ect-ltp,.ect-atm-row .ect-strike{background:rgba(0,110,95,.28)!important;}
+.ect-rate{color:var(--t);text-align:right;cursor:pointer;}
+.ect-val{text-align:right;cursor:pointer;}
+.ect-rate:hover,.ect-val:hover{text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;}
+</style>
+<div class="ect-info">
+  Gap <b>${g} pts</b> &nbsp;·&nbsp; Combo <b>${ST.aCombo.l}</b> &nbsp;·&nbsp; ATM <b>${fmt(atm)}</b>
+  &nbsp;·&nbsp; Wk Strd <b>${ST.sw}</b> &nbsp;·&nbsp; Nxt Wk Strd <b>${ST.snw}</b> &nbsp;·&nbsp; Monthly Strd <b>${ST.sm}</b>
+  &nbsp;·&nbsp; ${FD.connected?'<b style="color:var(--suc)">● Live prices</b>':'Demo (Black-Scholes estimates)'}
+  &nbsp;·&nbsp; Click any strike to add position to tracker.
+</div>
+<div class="ect-outer">
+  <div class="ect-side">
+    <div class="ect-side-hdr"><span class="ect-dot-c">●</span>&nbsp; Call Butterfly (Increasing ↑)</div>
+    <div class="ect-scroll"><table class="ect-tbl">${colgroup}${thead}<tbody>${callStrikes.map(K=>buildRow(K,'C')).join('')}</tbody></table></div>
+  </div>
+  <div class="ect-side">
+    <div class="ect-side-hdr"><span class="ect-dot-p">●</span>&nbsp; Put Butterfly (Decreasing ↓)</div>
+    <div class="ect-scroll"><table class="ect-tbl">${colgroup}${thead}<tbody>${putStrikes.map(K=>buildRow(K,'P')).join('')}</tbody></table></div>
+  </div>
+</div>
+`;
+}
+
+// ── BF RATE MODAL (VAL% + Trade Management + Chain Concept) ───────
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeBFModal();});
+function closeBFModal(){
+  const r=document.getElementById('bf-modal-root');
+  if(r)r.innerHTML='';
+}
+function guidanceFor(tc){
+  return{
+    ideal:{h:'Ideal entry — Value% ≤ 10%',b:'Factor 1 score: 60/60. Once open, Hold% ≤ 15% → hold comfortably, theta works for you. No action needed unless chain deteriorates.'},
+    pass: {h:'Pass — Value% ≤ 20%',b:'Factor 1 score: 45/60. Monitor the Hold% 15–20% band: hold, but check chain concept for adjacent BF rates. If chain shows deterioration → prepare to exit.'},
+    warn: {h:'Borderline — Value% ≤ 25%',b:'Factor 1 score: 5/60. If Hold% reaches 20–25%, review 3 checks: (a) is the other side compensating, (b) does chain show improvement, (c) is straddle falling (VIX dropping). Any YES → hold one more session. All NO → exit this leg.'},
+    fail: {h:'Fail — Value% > 25%',b:'Factor 1 auto-reject at entry. If already open, Hold% > 25% → EXIT IMMEDIATELY, non-negotiable. Book at whatever price is available — do not wait for recovery.'}
+  }[tc];
+}
+function computeEntryScore(K,type,gap,entryRate,ltp,valPct){
+  // PART 4.3 — FLP Minimums (Data Quality Gate). Checked BEFORE any scoring —
+  // per the doc, these gate failures mean the data itself is unusable
+  // (too deep OTM/stale, spread anomaly, or crushed premiums), not just a
+  // low-scoring setup, so they short-circuit everything below.
+  const gateFails=[];
+  if(!(ltp>8))gateFails.push(`FLP ₹${ltp} ≤ ₹8 (too deep OTM or stale data)`);
+  if(!(entryRate>0.5))gateFails.push(`BF Rate ₹${entryRate} ≤ ₹0.5 (spread too tight or pricing anomaly)`);
+  if(!(ST.aStrd>50))gateFails.push(`ATM Straddle ₹${ST.aStrd} ≤ ₹50 (premiums crushed — back-ratio zone, not BF)`);
+  if(gateFails.length){
+    return{factors:[],total:-999,
+      decision:{l:`SKIP — Data Quality Gate failed: ${gateFails.join('; ')}`,c:'lo'},
+      rejected:true,gateFailed:true};
+  }
+
+  const factors=[];
+
+  // FACTOR 1 — Value% (max 60)
+  let f1,f1Note;
+  if(valPct>25){f1=-999;f1Note=`${valPct.toFixed(1)}% — REJECT (hard stop)`;}
+  else if(valPct<=10){f1=60;f1Note=`${valPct.toFixed(1)}% ≤10% (Ideal)`;}
+  else if(valPct<=15){f1=45;f1Note=`${valPct.toFixed(1)}% ≤15% (Good)`;}
+  else if(valPct<=20){f1=25;f1Note=`${valPct.toFixed(1)}% ≤20% (Pass)`;}
+  else{f1=5;f1Note=`${valPct.toFixed(1)}% ≤25% (Borderline)`;}
+  const rejected=f1===-999;
+  factors.push({n:1,label:'Value%',detail:f1Note,pts:f1,max:60});
+
+  // FACTOR 2 — VIX direction (max 40)
+  const estimated=FD.vixChg==null;
+  const vixChg=FD.vixChg!=null?FD.vixChg:(ST.calib.vixDirOv==='falling'?-0.6:ST.calib.vixDirOv==='rising'?0.6:0);
+  let f2,f2Note;
+  if(vixChg<0){
+    const drop=-vixChg;
+    if(drop>1.0){f2=40;f2Note=`Falling ${drop.toFixed(2)} (>1.0) — best`;}
+    else if(drop>=0.5){f2=25;f2Note=`Falling ${drop.toFixed(2)} (0.5–1.0)`;}
+    else{f2=10;f2Note=`Falling ${drop.toFixed(2)} (0–0.5)`;}
+  }else if(vixChg<=1.0){f2=0;f2Note=`${vixChg===0?'Flat':'Rising '+vixChg.toFixed(2)} (0–1.0)`;}
+  else{f2=-20;f2Note=`Rising ${vixChg.toFixed(2)} (>1.0) — bad`;}
+  factors.push({n:2,label:'VIX direction',detail:f2Note+(estimated?' (est.)':''),pts:f2,max:40});
+
+  // FACTOR 3 — Overshoot ratio (max 40)
+  const move=ST.calib.moveOv!=null?ST.calib.moveOv:(FD.chg!=null?FD.chg:0);
+  const ratio=ST.aStrd>0?r2(Math.abs(move)/ST.aStrd):0;
+  let f3,f3Note;
+  if(ratio>1.2){f3=40;f3Note=`Ratio ${ratio.toFixed(2)} (>1.2) — prime`;}
+  else if(ratio>=0.9){f3=20;f3Note=`Ratio ${ratio.toFixed(2)} (0.9–1.2)`;}
+  else if(ratio>=0.5){f3=5;f3Note=`Ratio ${ratio.toFixed(2)} (0.5–0.9)`;}
+  else{f3=-10;f3Note=`Ratio ${ratio.toFixed(2)} (<0.5)`;}
+  factors.push({n:3,label:'Overshoot ratio',detail:f3Note,pts:f3,max:40});
+
+  // FACTOR 4 — Double Middle Lock (30)
+  const callMid=oiMiddleStrike('C'),putMid=oiMiddleStrike('P');
+  let f4,f4Note;
+  if(!FD.chain.length){f4=0;f4Note='No live OI data — assumed 0';}
+  else if(callMid&&putMid&&callMid.strike===putMid.strike){f4=30;f4Note=`Call & Put middle both ${fmt(callMid.strike)} — locked`;}
+  else{f4=0;f4Note=`Call mid ${callMid?fmt(callMid.strike):'—'} ≠ Put mid ${putMid?fmt(putMid.strike):'—'}`;}
+  factors.push({n:4,label:'Double Middle Lock',detail:f4Note,pts:f4,max:30});
+
+  // FACTOR 5 — PCR neutral zone (10)
+  const pcr=FD.pcr||0;
+  let f5,f5Note;
+  if(pcr>=0.7&&pcr<=1.3){f5=10;f5Note=`PCR ${pcr} (0.7–1.3) — neutral`;}
+  else if(pcr&&pcr<0.5){f5=-10;f5Note=`PCR ${pcr} (<0.5) — extreme`;}
+  else if(pcr>1.8){f5=-10;f5Note=`PCR ${pcr} (>1.8) — extreme`;}
+  else{f5=0;f5Note=`PCR ${pcr||'–'} (outside bands)`;}
+  factors.push({n:5,label:'PCR neutral zone',detail:f5Note,pts:f5,max:10});
+
+  // FACTOR 6 — Chain Concept, README PART 5: 3 scenarios (Up straddle / Flat / Down straddle)
+  const strd=ST.aStrd;
+  const scenUp=simScenario(K,type,strd,gap);
+  const scenFlat=simScenario(K,type,0,gap);
+  const scenDn=simScenario(K,type,-strd,gap);
+  const thr=r1(entryRate*0.40);
+  const sUp=scenUp.rate>=thr,sFlat=scenFlat.rate>=thr,sDn=scenDn.rate>=thr;
+  const survivedCount=[sUp,sFlat,sDn].filter(Boolean).length;
+  let f6=survivedCount===3?20:survivedCount===2?10:survivedCount===1?0:-20;
+  factors.push({n:6,label:'Chain Concept',detail:`${survivedCount}/3 scenarios survive (≥40% of entry = ₹${thr})`,pts:f6,max:20,
+    scenarios:[
+      {l:`Up ${strd}pt`,spot:scenUp.ns,rate:scenUp.rate,ok:sUp},
+      {l:'Flat',spot:scenFlat.ns,rate:scenFlat.rate,ok:sFlat},
+      {l:`Down ${strd}pt`,spot:scenDn.ns,rate:scenDn.rate,ok:sDn},
+    ]});
+
+  const total=rejected?-999:factors.reduce((a,f)=>a+f.pts,0);
+  let decision;
+  if(rejected){
+    decision={l:'REJECT — Value% > 25% (hard stop, non-negotiable)',c:'lo'};
+  }else if(valPct>20){
+    // Part 4.2's Borderline band (20.1–25%): enter ONLY if all 3 conditions
+    // pass, and per Part 4.4 this is ALWAYS half size — it does not scale
+    // up to normal/strong sizing by score like the ≤20% buckets below do.
+    const chainOk=survivedCount>=2,vixOk=vixChg<0&&(-vixChg)>0.5,osOk=ratio>1.0;
+    if(!(chainOk&&vixOk&&osOk))decision={l:`SKIP — Borderline Value% fails entry conditions (chain ${chainOk?'✓':'✗'} · VIX falling >0.5 ${vixOk?'✓':'✗'} · overshoot>1.0 ${osOk?'✓':'✗'})`,c:'lo'};
+    else if(total<60)decision={l:'SKIP — score below 60 even though borderline conditions pass',c:'lo'};
+    else decision={l:'ENTER — HALF SIZE (0.5× base lots) — borderline Value%, all 3 conditions pass',c:'hi'};
+  }else if(total<60){
+    decision={l:'SKIP — score below 60',c:'lo'};
+  }else if(valPct<=10&&total>=120){
+    // Part 4.4: each sizing tier needs BOTH its own Value% band AND its own
+    // score floor — ≤10%/≥120 for 3×, ≤15%/≥90 for 2×, ≤20%/≥60 for 1×.
+    decision={l:'STRONG ENTRY — 3× base lots (Value% ≤10%, Score ≥120)',c:'hi'};
+  }else if(valPct<=15&&total>=90){
+    decision={l:'ENTER — 2× base lots (Value% ≤15%, Score ≥90)',c:'hi'};
+  }else{
+    decision={l:'NORMAL ENTRY — base sizing (1× base lots)',c:'hi'};
+  }
+
+  return{factors,total,decision,rejected};
+}
+function openBFModal(type,K,gap,entryRate,ltp){
+  const pct=vp(entryRate,ltp);
+  const grade=vs(pct);
+  const guide=guidanceFor(grade.tc);
+  const score=computeEntryScore(K,type,gap,entryRate,ltp,pct);
+  const offsets=[200,150,100,50,0,-50,-100,-150,-200];
+
+  const rows=offsets.map(mv=>{
+    if(mv===0){
+      return{mv,spot:ST.aSpot,rate:entryRate,flp:ltp,valPct:pct,pnl:0,verdict:'ENTRY',vc:'nu'};
+    }
+    const sc=simScenario(K,type,mv,gap);
+    const valPct=vp(entryRate,sc.flp);
+    const pnl=r1(sc.rate-entryRate);
+    let verdict,vc;
+    if(valPct>25){verdict='EXIT';vc='lo';}
+    else if(valPct>20){verdict='REVIEW';vc='mid';}
+    else{verdict='HOLD';vc='hi';}
+    return{mv,spot:sc.ns,rate:sc.rate,flp:sc.flp,valPct,pnl,verdict,vc};
+  });
+  const adverse=rows.filter(r=>r.mv!==0);
+  const survive=adverse.filter(r=>r.verdict==='HOLD').length;
+  const total=adverse.length;
+  const overall=survive>=6?{l:'Chain strongly favors HOLD',c:'hi'}
+    :survive>=4?{l:'Chain moderately favors HOLD — manage closely',c:'hi'}
+    :survive>=2?{l:'Chain mixed — tighten management',c:'mid'}
+    :{l:'Chain flags EXIT risk on adverse scenarios',c:'lo'};
+
+  const rowsHtml=rows.map(r=>`<tr class="${r.mv===0?'bfm-base':''}">
+      <td class="bfm-mv" style="color:${r.mv>0?'var(--suc)':r.mv<0?'var(--dng)':'var(--t2)'}">${r.mv>0?'+':''}${r.mv}</td>
+      <td>${fmt(r.spot)}</td>
+      <td>${r.rate}</td>
+      <td>${r.flp}</td>
+      <td style="color:${r.valPct>25?'var(--dng)':r.valPct>20?'var(--wrn)':'var(--suc)'}">${r.valPct.toFixed(1)}%</td>
+      <td style="color:${r.pnl>=0?'var(--suc)':'var(--dng)'};font-weight:600">${r.pnl>=0?'+':''}${r.pnl}</td>
+      <td><span class="bfm-chip ${r.vc}">${r.verdict}</span></td>
+    </tr>`).join('');
+
+  const factorRows=score.factors.map(f=>{
+    const c=f.pts>0?'hi':f.pts<0?'lo':'nu';
+    let extra='';
+    if(f.scenarios){
+      extra=`<div class="bfm-f6grid">${f.scenarios.map(s=>`
+        <div class="bfm-f6cell ${s.ok?'ok':'no'}"><div class="bfm-f6l">${s.l}</div>
+          <div class="bfm-f6v">${fmt(s.spot)} · ₹${s.rate}</div>
+          <div class="bfm-f6t">${s.ok?'✓ Survives':'✗ Fails'}</div></div>`).join('')}</div>`;
+    }
+    return`<div class="bfm-frow">
+      <div class="bfm-fbadge">${f.n}</div>
+      <div class="bfm-fmain"><div class="bfm-flabel">${f.label} <span class="bfm-fmax">(max ${f.max<0?f.max:f.max})</span></div>
+        <div class="bfm-fdetail">${f.detail}</div>${extra}</div>
+      <div class="bfm-fpts ${c}">${f.pts>0?'+':''}${f.pts}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('bf-modal-root').innerHTML=`
+<style>
+.bfm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;display:flex;align-items:center;justify-content:center;padding:10px;}
+.bfm-box{width:100%;max-width:460px;max-height:86vh;overflow-y:auto;background:var(--s1);border:1px solid var(--b);
+  border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.5);font-size:11px;}
+.bfm-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;padding:9px 12px;
+  background:var(--s0);border-bottom:1px solid var(--b);}
+.bfm-title{flex:1;font-size:11.5px;font-weight:600;color:var(--t);}
+.bfm-title small{display:block;font-size:9px;color:var(--t3);font-weight:400;margin-top:1px;}
+.bfm-close{flex-shrink:0;width:20px;height:20px;border-radius:5px;border:1px solid var(--b);background:var(--s2);
+  color:var(--t2);cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;}
+.bfm-close:hover{background:var(--s0);color:var(--t);}
+.bfm-body{padding:10px 12px;}
+.bfm-mgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(95px,1fr));gap:5px;margin-bottom:8px;}
+.bfm-metric{background:var(--s0);border:1px solid var(--b);border-radius:6px;padding:5px 7px;}
+.bfm-ml{font-size:8px;color:var(--t2);text-transform:uppercase;letter-spacing:.03em;margin-bottom:2px;font-weight:600;}
+.bfm-mv{font-size:12px;font-weight:600;color:var(--t);}
+.bfm-note{background:var(--s0);border-left:3px solid var(--acc);border-radius:0 6px 6px 0;padding:7px 9px;
+  font-size:10px;color:var(--t2);line-height:1.5;margin-bottom:9px;}
+.bfm-note b{color:var(--t);}
+.bfm-st{font-size:9.5px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.03em;
+  margin:9px 0 5px;}
+.bfm-tbl{width:100%;border-collapse:collapse;font-size:10px;}
+.bfm-tbl th{background:var(--s0);color:var(--t2);font-weight:600;padding:4px 5px;text-align:right;
+  font-size:8.5px;text-transform:uppercase;letter-spacing:.02em;border:1px solid var(--b);}
+.bfm-tbl th:first-child,.bfm-tbl td:first-child{text-align:left;}
+.bfm-tbl td{padding:4px 5px;text-align:right;border:1px solid var(--b);color:var(--t);}
+.bfm-tbl tbody tr:nth-child(odd) td{background:var(--s0);}
+.bfm-base td{background:rgba(0,110,95,.22)!important;font-weight:600;}
+.bfm-chip{display:inline-block;padding:1px 7px;border-radius:20px;font-size:8.5px;font-weight:700;}
+.bfm-chip.hi{background:var(--bgs);color:var(--suc);border:1px solid var(--bs);}
+.bfm-chip.mid{background:var(--bgw);color:var(--wrn);border:1px solid var(--bw);}
+.bfm-chip.lo{background:var(--bgd);color:var(--dng);border:1px solid var(--bd);}
+.bfm-chip.nu{background:var(--bga);color:var(--acc);border:1px solid var(--ba);}
+.bfm-summary{display:flex;align-items:center;gap:7px;margin-top:7px;padding:6px 9px;border-radius:6px;
+  background:var(--s0);border:1px solid var(--b);font-size:10px;color:var(--t);}
+.bfm-frow{display:flex;align-items:flex-start;gap:7px;padding:5px 3px;border-bottom:1px solid var(--b);}
+.bfm-frow:last-child{border-bottom:none;}
+.bfm-fbadge{flex-shrink:0;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:8.5px;font-weight:700;background:var(--bga);color:var(--acc);border:1px solid var(--ba);margin-top:1px;}
+.bfm-fmain{flex:1;min-width:0;}
+.bfm-flabel{font-size:10px;font-weight:600;color:var(--t);}
+.bfm-fmax{font-size:8.5px;font-weight:400;color:var(--t3);}
+.bfm-fdetail{font-size:9px;color:var(--t2);margin-top:1px;line-height:1.4;}
+.bfm-fpts{flex-shrink:0;font-size:11px;font-weight:700;min-width:34px;text-align:right;}
+.bfm-fpts.hi{color:var(--suc);}
+.bfm-fpts.lo{color:var(--dng);}
+.bfm-fpts.nu{color:var(--t2);}
+.bfm-f6grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:5px;}
+.bfm-f6cell{border-radius:5px;padding:4px 5px;border:1px solid var(--b);background:var(--s0);}
+.bfm-f6cell.ok{border-color:var(--bs);background:var(--bgs);}
+.bfm-f6cell.no{border-color:var(--bd);background:var(--bgd);}
+.bfm-f6l{font-size:8px;color:var(--t2);font-weight:600;text-transform:uppercase;}
+.bfm-f6v{font-size:9px;color:var(--t);margin-top:1px;}
+.bfm-f6t{font-size:8.5px;margin-top:1px;font-weight:600;}
+.bfm-f6cell.ok .bfm-f6t{color:var(--suc);}
+.bfm-f6cell.no .bfm-f6t{color:var(--dng);}
+.bfm-scorebox{margin-top:6px;padding:8px 10px;border-radius:7px;text-align:center;}
+.bfm-scorebox.hi{background:var(--bgs);border:1px solid var(--bs);}
+.bfm-scorebox.lo{background:var(--bgd);border:1px solid var(--bd);}
+.bfm-scoreval{font-size:19px;font-weight:700;line-height:1.1;}
+.bfm-scoreval.hi{color:var(--suc);}
+.bfm-scoreval.lo{color:var(--dng);}
+.bfm-scoredec{font-size:10px;font-weight:600;color:var(--t);margin-top:3px;line-height:1.4;}
+</style>
+<div class="bfm-overlay" onclick="if(event.target===event.currentTarget)closeBFModal()">
+  <div class="bfm-box">
+    <div class="bfm-head">
+      <div class="bfm-title">${type==='C'?'Call':'Put'} Butterfly — Strike ${fmt(K)}
+        <small>Gap ${gap} pts · First leg LTP ₹${ltp}</small></div>
+      <button class="bfm-close" onclick="closeBFModal()">✕</button>
+    </div>
+    <div class="bfm-body">
+      <div class="bfm-mgrid">
+        <div class="bfm-metric"><div class="bfm-ml">Entry BF Rate</div><div class="bfm-mv">₹${entryRate}</div></div>
+        <div class="bfm-metric"><div class="bfm-ml">First Leg LTP</div><div class="bfm-mv">₹${ltp}</div></div>
+        <div class="bfm-metric"><div class="bfm-ml">VAL%</div><div class="bfm-mv">${pct.toFixed(1)}%</div></div>
+        <div class="bfm-metric"><div class="bfm-ml">Grade</div><div class="bfm-mv"><span class="bfm-chip ${grade.tc==='ideal'?'hi':grade.tc==='pass'?'hi':grade.tc==='warn'?'mid':'lo'}">${grade.l}</span></div></div>
+      </div>
+
+      <div class="bfm-st">Trade Management</div>
+      <div class="bfm-note"><b>${guide.h}</b><br>${guide.b}</div>
+
+      <div class="bfm-st">Entry Scoring System <span style="font-weight:400;color:var(--t3);text-transform:none">(min score to enter = 60)</span></div>
+      <div>${factorRows}</div>
+      <div class="bfm-scorebox ${score.rejected?'lo':score.total>=60?'hi':'lo'}">
+        <div class="bfm-scoreval ${score.rejected?'lo':score.total>=60?'hi':'lo'}">${score.rejected?'REJECT':(score.total>=0?'+':'')+score.total}</div>
+        <div class="bfm-scoredec">${score.decision.l}</div>
+      </div>
+
+      <div class="bfm-st">Chain Concept — Live BF Rate by Spot Move</div>
+      <table class="bfm-tbl">
+        <thead><tr><th>Move</th><th>Spot</th><th>BF</th><th>FLP</th><th>VAL%</th><th>P&L</th><th>Verdict</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <div class="bfm-note" style="margin-top:6px;margin-bottom:0"><b>VAL% = Entry Rate ÷ New FLP × 100.</b> &gt;20% Review, &gt;25% Exit. P&amp;L is points/lot; ×${ST.lotSize} for ₹. Rates read live off the chain at the shifted strike (real skew), not a theoretical reprice.</div>
+      <div class="bfm-summary"><span class="bfm-chip ${overall.c}">${survive}/${total} scenarios HOLD</span>&nbsp; ${overall.l}</div>
+    </div>
+  </div>
+</div>`;
+}
+
+// ── PRE-ENTRY CALIBRATION (README Part 3) ──────────────────────────
+function oiMiddleStrike(type){
+  if(!FD.chain.length||!FD.atm)return null;
+  const atm=FD.atm;
+  const cands=FD.chain.filter(r=>Math.abs(r.strike-atm)<=150&&(type==='C'?r.strike>=atm:r.strike<=atm));
+  let best=null;
+  for(const c of cands){
+    const chg=type==='C'?c.call.oiChg:c.put.oiChg;
+    if(chg>0&&(!best||chg>best.chg))best={strike:c.strike,chg};
+  }
+  return best;
+}
+function toleranceForDTE(dte){
+  if(dte<=0)return{l:'Expiry day',v:50};
+  if(dte===1)return{l:'Day before expiry',v:100};
+  if(dte<=3)return{l:'Weekly (Mon-ish)',v:225,rng:'200-250'};
+  if(dte<=8)return{l:'Next week entry',v:350,rng:'300-400'};
+  return{l:'Monthly entry',v:550,rng:'500-600'};
+}
+function rPre(){
+  document.getElementById('p-pre').innerHTML=`
+<style>
+.pec{max-width:900px;margin:0 auto;font-size:11px;}
+.pec-banner{display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,rgba(239,68,68,.16),rgba(239,68,68,.05));
+  border:1px solid var(--bd);border-left:3px solid var(--dng);border-radius:7px;padding:7px 11px;margin-bottom:10px;
+  font-size:11px;color:var(--t);}
+.pec-banner .ic{font-size:14px;line-height:1;}
+.pec-banner b{color:var(--dng);}
+/* ── Hero summary strip ── */
+.pec-hero{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:7px;margin-bottom:12px;}
+.pec-hcard{position:relative;border-radius:8px;padding:8px 10px;overflow:hidden;
+  background:var(--s1);border:1px solid var(--b);}
+.pec-hcard::before{content:'';position:absolute;inset:0;opacity:.5;background:var(--pec-grad,none);pointer-events:none;}
+.pec-hcard.g1{--pec-grad:linear-gradient(135deg,rgba(59,130,246,.18),transparent 65%);border-color:var(--ba);}
+.pec-hcard.g2{--pec-grad:linear-gradient(135deg,rgba(168,85,247,.16),transparent 65%);border-color:#4c2a7a;}
+.pec-hcard.g3{--pec-grad:linear-gradient(135deg,rgba(34,197,94,.16),transparent 65%);border-color:var(--bs);}
+.pec-hcard.g4{--pec-grad:linear-gradient(135deg,rgba(245,158,11,.18),transparent 65%);border-color:var(--bw);}
+.pec-hcard.score-hi{--pec-grad:linear-gradient(135deg,rgba(34,197,94,.22),transparent 65%);border-color:var(--bs);}
+.pec-hcard.score-mid{--pec-grad:linear-gradient(135deg,rgba(245,158,11,.2),transparent 65%);border-color:var(--bw);}
+.pec-hcard.score-lo{--pec-grad:linear-gradient(135deg,rgba(239,68,68,.14),transparent 65%);border-color:var(--bd);}
+.pec-hl{position:relative;font-size:8.5px;font-weight:700;color:var(--t2);text-transform:uppercase;
+  letter-spacing:.05em;margin-bottom:3px;display:flex;align-items:center;gap:4px;}
+.pec-hl .n{display:inline-flex;align-items:center;justify-content:center;width:12px;height:12px;border-radius:50%;
+  background:var(--s2);color:var(--t2);font-size:8px;font-weight:700;}
+.pec-hv{position:relative;font-size:15px;font-weight:600;color:var(--t);letter-spacing:-.01em;line-height:1.15;}
+.pec-hs{position:relative;font-size:9px;color:var(--t2);margin-top:2px;line-height:1.4;}
+/* ── Step cards ── */
+.pec-steps{display:flex;flex-direction:column;gap:7px;}
+.pec-step{background:var(--s1);border:1px solid var(--b);border-radius:8px;overflow:hidden;}
+.pec-shead{display:flex;align-items:center;gap:7px;padding:6px 10px;border-bottom:1px solid var(--b);
+  background:var(--s0);}
+.pec-badge{flex-shrink:0;width:17px;height:17px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:700;background:var(--bga);color:var(--acc);border:1px solid var(--ba);}
+.pec-stitle{flex:1;font-size:10.5px;font-weight:600;color:var(--t);line-height:1.3;}
+.pec-ssub{font-size:8.5px;color:var(--t3);font-weight:400;margin-top:0;}
+.pec-chip{flex-shrink:0;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;white-space:nowrap;}
+.pec-chip.hi{background:var(--bgs);color:var(--suc);border:1px solid var(--bs);}
+.pec-chip.mid{background:var(--bgw);color:var(--wrn);border:1px solid var(--bw);}
+.pec-chip.lo{background:var(--bgd);color:var(--dng);border:1px solid var(--bd);}
+.pec-chip.nu{background:var(--bga);color:var(--acc);border:1px solid var(--ba);}
+.pec-sbody{padding:8px 10px;}
+.pec-mgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;}
+.pec-metric{background:var(--s0);border:1px solid var(--b);border-radius:6px;padding:6px 8px;}
+.pec-ml{font-size:8.5px;color:var(--t2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px;font-weight:600;}
+.pec-mv{font-size:12px;font-weight:600;color:var(--t);}
+.pec-mn{font-size:8.5px;color:var(--t3);margin-top:2px;line-height:1.4;}
+.pec-formula{background:var(--s0);border:1px dashed var(--b);border-radius:6px;padding:7px 10px;font-size:10.5px;
+  color:var(--t2);line-height:1.6;}
+.pec-formula b{color:var(--acc);font-weight:600;}
+.pec-note{background:var(--s0);border-left:2px solid var(--acc);border-radius:0 6px 6px 0;padding:6px 10px;
+  font-size:10px;color:var(--t2);line-height:1.6;margin-top:7px;}
+.pec-note b{color:var(--t);}
+.pec-empty{background:var(--s0);border:1px dashed var(--b);border-radius:6px;padding:8px 10px;font-size:10px;
+  color:var(--t2);line-height:1.5;text-align:center;}
+/* ── Override panel ── */
+.pec-ov{margin-top:12px;background:var(--s1);border:1px solid var(--b);border-radius:8px;overflow:hidden;}
+.pec-ov-head{display:flex;align-items:center;gap:6px;padding:7px 10px;background:var(--s0);border-bottom:1px solid var(--b);}
+.pec-ov-head .ic{font-size:11px;}
+.pec-ov-title{font-size:10px;font-weight:600;color:var(--t);}
+.pec-ov-sub{font-size:8.5px;color:var(--t3);margin-left:auto;}
+.pec-ov-body{padding:8px 10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:7px;}
+.pec-ov-fg{display:flex;flex-direction:column;gap:3px;}
+.pec-ov-fg label{font-size:9px;color:var(--t2);font-weight:500;}
+.pec-ov-fg select,.pec-ov-fg input{background:var(--s2);border:1px solid var(--b);border-radius:5px;
+  padding:5px 7px;font-size:11px;color:var(--t);font-family:var(--f);width:100%;}
+.pec-ov-fg select:focus,.pec-ov-fg input:focus{outline:none;border-color:var(--acc);}
+</style>
+<div class="pec">
+  <div id="pre-out"></div>
+  <div class="pec-ov">
+    <div class="pec-ov-head"><span class="ic">⚙</span><span class="pec-ov-title">Manual Overrides</span>
+      <span class="pec-ov-sub">Used when live Fyers data isn't connected</span></div>
+    <div class="pec-ov-body">
+      <div class="pec-ov-fg"><label>VIX direction today</label>
+        <select onchange="ST.calib.vixDirOv=this.value||null;rPreOut()">
+          <option value="" ${!ST.calib.vixDirOv?'selected':''}>Auto (from live VIX chg)</option>
+          <option value="falling" ${ST.calib.vixDirOv==='falling'?'selected':''}>Falling</option>
+          <option value="flat" ${ST.calib.vixDirOv==='flat'?'selected':''}>Flat</option>
+          <option value="rising" ${ST.calib.vixDirOv==='rising'?'selected':''}>Rising</option>
+        </select>
+      </div>
+      <div class="pec-ov-fg"><label>Today's market move (pts, ±)</label>
+        <input type="number" placeholder="${FD.chg!=null?FD.chg:'e.g. 235'}" value="${ST.calib.moveOv!=null?ST.calib.moveOv:''}"
+          oninput="ST.calib.moveOv=this.value===''?null:+this.value;rPreOut()"></div>
+      <div class="pec-ov-fg"><label>Events today</label>
+        <select onchange="ST.calib.events=(this.value==='1');rPreOut()">
+          <option value="0" ${!ST.calib.events?'selected':''}>None</option>
+          <option value="1" ${ST.calib.events?'selected':''}>Event scheduled → STOP</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>`;
+  rPreOut();
+}
+function rPreOut(){
+  const el=document.getElementById('pre-out');if(!el)return;
+  const sp=ST.aSpot,vx=ST.aVix,st=ST.aStrd,gap=ST.aGap,combo=ST.aCombo;
+  const atm=FD.atm||Math.round(sp/50)*50;
+
+  // Step 4 — adverse tolerance
+  const tol=toleranceForDTE(ST.dte);
+
+  // Step 5 — VIX check (FACTOR 2 — VIX direction, max 40 pts)
+  const vixDir=ST.calib.vixDirOv||(FD.vixChg==null?'flat':FD.vixChg<-0.05?'falling':FD.vixChg>0.05?'rising':'flat');
+  const vixRegime=vx<12?{l:'Very low',c:'lo',note:'Premiums crushed → consider back ratio'}
+    :vx<14?{l:'Normal',c:'nu',note:'Ideal debit BF zone'}
+    :vx<17?{l:'Moderate',c:'nu',note:'Good BF entry, scale carefully'}
+    :vx<=20?{l:'Elevated',c:'hi',note:'Excellent BF entry (more premium)'}
+    :{l:'High',c:'hi',note:'Scale aggressively on dips'};
+  const vixEstimated=FD.vixChg==null;
+  const vixChgVal=FD.vixChg!=null?FD.vixChg:(ST.calib.vixDirOv==='falling'?-0.6:ST.calib.vixDirOv==='rising'?0.6:0);
+  let vixScore,vixTag;
+  if(vixChgVal<0){
+    const drop=-vixChgVal;
+    if(drop>1.0){vixScore=40;vixTag='VIX falling >1.0 — best condition';}
+    else if(drop>=0.5){vixScore=25;vixTag='VIX falling 0.5–1.0';}
+    else{vixScore=10;vixTag='VIX falling 0–0.5';}
+  }else if(vixChgVal<=1.0){vixScore=0;vixTag='VIX rising 0–1.0';}
+  else{vixScore=-20;vixTag='VIX rising >1.0 — bad, avoid if possible';}
+
+  // Step 6 — overshoot ratio (FACTOR 3 — Overshoot ratio, max 40 pts)
+  const move=ST.calib.moveOv!=null?ST.calib.moveOv:(FD.chg!=null?FD.chg:0);
+  const absMove=Math.abs(move);
+  const ratio=st>0?r2(absMove/st):0;
+  const os=ratio>1.2?{l:'Ratio >1.2 — prime entry, market overshot range',c:'hi',score:40}
+    :ratio>=0.9?{l:'Ratio 0.9–1.2',c:'hi',score:20}
+    :ratio>=0.5?{l:'Ratio 0.5–0.9',c:'mid',score:5}
+    :{l:'Ratio <0.5',c:'lo',score:-10};
+
+  // Step 7 — OI-based middle strike + FACTOR 4 — Double Middle Lock (30 pts)
+  const callMid=oiMiddleStrike('C'),putMid=oiMiddleStrike('P');
+  let lockScore=0,lockTag='No live OI data',lockC='nu';
+  if(FD.chain.length){
+    if(callMid&&putMid&&callMid.strike===putMid.strike){lockScore=30;lockTag='Locked — call mid = put mid';lockC='hi';}
+    else{lockScore=0;lockTag='Not locked — call mid ≠ put mid';lockC='lo';}
+  }
+
+  // Step 8 — PCR bias + FACTOR 5 — PCR neutral zone (10 pts)
+  const pcr=FD.pcr||0;
+  const pcrBias=pcr<0.7?{l:'Bullish OI structure',note:'Shift call BF middles 50-100 pts higher than OI target. Put BFs center at/near ATM.',c:'hi'}
+    :pcr<=1.2?{l:'Neutral',note:'Symmetric placement — both sides balanced.',c:'nu'}
+    :pcr<=1.8?{l:'Bearish OI structure',note:'Put BF middles 50 pts lower than OI target. Call BFs at ATM or slightly higher.',c:'mid'}
+    :{l:'Extreme bearish',note:'Reduce call BF, increase put BF.',c:'lo'};
+  let pcrScore,pcrTag;
+  if(pcr>=0.7&&pcr<=1.3){pcrScore=10;pcrTag='PCR 0.7–1.3 — neutral, butterfly friendly';}
+  else if(pcr&&pcr<0.5){pcrScore=-10;pcrTag='PCR <0.5 — extreme, directional risk';}
+  else if(pcr>1.8){pcrScore=-10;pcrTag='PCR >1.8 — extreme, directional risk';}
+  else{pcrScore=0;pcrTag='PCR outside neutral/extreme bands';}
+
+  const totalScore=vixScore+os.score+lockScore+pcrScore;
+  const scoreCls=totalScore>=60?'score-hi':totalScore>=25?'score-mid':'score-lo';
+
+  function metric(lbl,val,note){
+    return `<div class="pec-metric"><div class="pec-ml">${lbl}</div><div class="pec-mv">${val}</div>${note?`<div class="pec-mn">${note}</div>`:''}</div>`;
+  }
+  function stepHead(n,title,sub,chip){
+    return `<div class="pec-shead"><div class="pec-badge">${n}</div>
+      <div><div class="pec-stitle">${title}</div>${sub?`<div class="pec-ssub">${sub}</div>`:''}</div>
+      ${chip?`<div class="pec-chip ${chip.c}">${chip.l}</div>`:''}</div>`;
+  }
+
+  el.innerHTML=`
+${ST.calib.events?'<div class="pec-banner"><span class="ic">⚠</span><div><b>EVENT DAY — STOP.</b> Do not enter new trades today regardless of every other signal below.</div></div>':''}
+
+<div class="pec-hero">
+  <div class="pec-hcard g1"><div class="pec-hl"><span class="n">1</span>ATM Straddle</div>
+    <div class="pec-hv">₹${fmt(st)}</div><div class="pec-hs">Call + Put LTP @ ATM ${fmt(atm)}</div></div>
+  <div class="pec-hcard g2"><div class="pec-hl"><span class="n">2</span>Recommended Gap</div>
+    <div class="pec-hv">${gap} pts</div><div class="pec-hs">${st} ÷ 2 ≈ ${r1(st/2)} → nearest 50</div></div>
+  <div class="pec-hcard g3"><div class="pec-hl"><span class="n">3</span>Combination</div>
+    <div class="pec-hv">${combo.l}</div><div class="pec-hs">Exit shows ${combo.r} per lot</div></div>
+  <div class="pec-hcard ${scoreCls}"><div class="pec-hl">Combined Entry Score</div>
+    <div class="pec-hv">${totalScore>=0?'+':''}${totalScore}</div>
+    <div class="pec-hs">VIX ${vixScore>=0?'+':''}${vixScore} · OS ${os.score>=0?'+':''}${os.score} · Lock ${lockScore>=0?'+':''}${lockScore} · PCR ${pcrScore>=0?'+':''}${pcrScore} (of max 120)</div></div>
+</div>
+
+<div class="pec-steps">
+
+<div class="pec-step">
+  ${stepHead(1,'Read ATM Straddle','Call LTP + Put LTP at the ATM strike')}
+  <div class="pec-sbody"><div class="pec-mgrid">
+    ${metric('Spot',fmt(sp))}
+    ${metric('ATM Strike',fmt(atm))}
+    ${metric('ATM Straddle','₹'+st)}
+  </div></div>
+</div>
+
+<div class="pec-step">
+  ${stepHead(2,'Calculate Recommended Gap','Gap defines the profit window')}
+  <div class="pec-sbody"><div class="pec-formula">Gap = ATM Straddle ÷ 2, rounded to nearest 50 &nbsp;→&nbsp; ${st} ÷ 2 = ${r1(st/2)} → <b>${gap} pts</b></div></div>
+</div>
+
+<div class="pec-step">
+  ${stepHead(3,'Select Combination','Higher straddle = more premium = can sell more lots')}
+  <div class="pec-sbody"><div class="pec-formula">Straddle ${st} → <b>${combo.l}</b> combination — exit shows <b>${combo.r}</b> per lot</div></div>
+</div>
+
+<div class="pec-step">
+  ${stepHead(4,'Adverse Move Tolerance','What the position can absorb without adjustment')}
+  <div class="pec-sbody"><div class="pec-mgrid">
+    ${metric('Tolerance (≈ straddle)','±'+fmt(st)+' pts')}
+    ${metric('DTE remaining',ST.dte+' day(s)')}
+    ${metric('DTE-based guide',tol.l,tol.rng?`Typical survivable range ±${tol.rng} pts`:`Survive ±${tol.v} pts`)}
+  </div></div>
+</div>
+
+<div class="pec-step">
+  ${stepHead(5,'VIX Check — Factor 2','VIX direction (max 40 pts)',{l:(vixScore>=0?'+':'')+vixScore+' pts',c:vixScore>=25?'hi':vixScore>0?'mid':'lo'})}
+  <div class="pec-sbody"><div class="pec-mgrid">
+    ${metric('VIX Level',(vx.toFixed?vx.toFixed(2):vx)+` <span class="pec-chip ${vixRegime.c}" style="font-size:9px;padding:1px 7px;vertical-align:middle">${vixRegime.l}</span>`,vixRegime.note)}
+    ${metric('Direction Today',vixDir==='falling'?'▼ Falling':vixDir==='rising'?'▲ Rising':'– Flat',FD.vixChg!=null?`Live chg: ${FD.vixChg>=0?'+':''}${FD.vixChg.toFixed(2)} (${FD.vixChgP}%)`:'Manual override / default (est.)')}
+    ${metric('Score',(vixScore>=0?'+':'')+vixScore+' / 40')}
+  </div>
+  <div class="pec-note">${vixTag}${vixEstimated?' — magnitude estimated from manual direction override.':''}</div>
+  </div>
+</div>
+
+<div class="pec-step">
+  ${stepHead(6,'Straddle Overshoot Signal — Factor 3','Overshoot ratio (max 40 pts)',{l:(os.score>=0?'+':'')+os.score+' pts',c:os.c})}
+  <div class="pec-sbody"><div class="pec-mgrid">
+    ${metric("Today's Move",(move>=0?'+':'')+r1(move)+' pts')}
+    ${metric('ATM Straddle',fmt(st))}
+    ${metric('Overshoot Ratio',ratio.toFixed(2))}
+  </div>
+  <div class="pec-note">Ratio = |${r1(move)}| ÷ ${st} = <b>${ratio.toFixed(2)}</b> — ${os.l} &nbsp;·&nbsp; Score: <b>${os.score>=0?'+':''}${os.score} / 40</b></div>
+  </div>
+</div>
+
+<div class="pec-step">
+  ${stepHead(7,'OI-Based Middle Strike — Factor 4','Double Middle Lock (30 pts)',{l:(lockScore>=0&&FD.chain.length?'+':'')+(FD.chain.length?lockScore+' pts':'—'),c:lockC})}
+  <div class="pec-sbody">
+  ${FD.chain.length?`<div class="pec-mgrid">
+    ${metric('Call BF Middle',callMid?fmt(callMid.strike):'—',callMid?`Highest +OI build above ATM (±150) · +${fmt(callMid.chg)}`:'No positive OI build found nearby — fallback to ATM')}
+    ${metric('Put BF Middle',putMid?fmt(putMid.strike):'—',putMid?`Highest +OI build below ATM (±150) · +${fmt(putMid.chg)}`:'No positive OI build found nearby — fallback to ATM')}
+    ${metric('Lock Score',(lockScore>=0?'+':'')+lockScore+' / 30',lockTag)}
+  </div>
+  <div class="pec-note">Call middle = Put middle → +30 pts (both sides peak at the same spot = maximum combined profit). Otherwise 0 pts.</div>`
+  :`<div class="pec-empty">Connect to Fyers (Exit Tool → Connect) to pull live option-chain OI change data.<br>Until then, default middle strike = ATM <b>${fmt(atm)}</b> and Lock Score = 0.</div>`}
+  </div>
+</div>
+
+<div class="pec-step">
+  ${stepHead(8,'PCR Directional Bias — Factor 5','PCR neutral zone (10 pts)',{l:(pcrScore>=0?'+':'')+pcrScore+' pts',c:pcrScore>0?'hi':pcrScore<0?'lo':'nu'})}
+  <div class="pec-sbody"><div class="pec-mgrid">
+    ${metric('PCR',pcr||'–')}
+    ${metric('Bias',pcrBias.l)}
+    ${metric('Score',(pcrScore>=0?'+':'')+pcrScore+' / 10')}
+  </div>
+  <div class="pec-note"><b>${pcrTag}</b><br>${pcrBias.note}</div>
+  </div>
+</div>
+
+</div>
+`;
+}
+
+// ── PAYOFF SVG ────────────────────────────────────────────────────
+function payoffSVG(K,g,dbt,type){
+  const W=380,H=120,PL=38,PR=12,PT=20,PB=24;
+  const pw=W-PL-PR,ph=H-PT-PB;
+  const maxP=g-dbt,minP=-dbt,rng=maxP-minP;
+  const xMin=type==='C'?K-g:K-3*g,xMax=type==='C'?K+3*g:K+g;
+  function pnl(S){
+    if(type==='C')return Math.max(0,S-K)-2*Math.max(0,S-K-g)+Math.max(0,S-K-2*g)-dbt;
+    return Math.max(0,K-S)-2*Math.max(0,K-g-S)+Math.max(0,K-2*g-S)-dbt;
+  }
+  function tx(s){return PL+(s-xMin)/(xMax-xMin)*pw;}
+  function ty(p){return PT+(1-(p-minP)/rng)*ph;}
+  const N=300,pts=[];
+  for(let i=0;i<=N;i++){const s=xMin+i*(xMax-xMin)/N;pts.push(`${tx(s).toFixed(1)},${ty(pnl(s)).toFixed(1)}`);}
+  const zy=ty(0).toFixed(1);
+  const beL=type==='C'?K+dbt:K-dbt,beR=type==='C'?K+2*g-dbt:K-2*g+dbt;
+  const midX=(type==='C'?tx(K+g):tx(K-g)).toFixed(1);
+  const fps=[];
+  for(let i=0;i<=N;i++){const s=xMin+i*(xMax-xMin)/N;if(s>=Math.min(beL,beR)&&s<=Math.max(beL,beR))fps.push(`${tx(s).toFixed(1)},${ty(pnl(s)).toFixed(1)}`);}
+  const lK=type==='C'?K:K-2*g,mK=type==='C'?K+g:K-g,rK=type==='C'?K+2*g:K;
+  return`<svg viewBox="0 0 ${W} ${H}" class="paysvg">
+<text x="${W/2}" y="13" text-anchor="middle" font-size="9" fill="#888">${type==='C'?'Call':'Put'} BF payoff at expiry · Strike=${fmt(K)} · Gap=${g} · Debit=₹${dbt}</text>
+<line x1="${PL}" y1="${PT}" x2="${PL}" y2="${H-PB+3}" stroke="#333" stroke-width=".8"/>
+<line x1="${PL}" y1="${H-PB}" x2="${W-PR}" y2="${H-PB}" stroke="#333" stroke-width=".8"/>
+<line x1="${PL}" y1="${zy}" x2="${W-PR}" y2="${zy}" stroke="#444" stroke-dasharray="4,3" stroke-width="1"/>
+${fps.length>2?`<path d="M${fps[0]} ${fps.slice(1).join(' ')} L${tx(Math.max(beL,beR)).toFixed(1)},${zy} L${tx(Math.min(beL,beR)).toFixed(1)},${zy}Z" fill="rgba(34,197,94,.2)"/>`:''}
+<polyline points="${pts.join(' ')}" fill="none" stroke="#3b82f6" stroke-width="2"/>
+<circle cx="${midX}" cy="${ty(maxP).toFixed(1)}" r="4" fill="#22c55e"/>
+<text x="${midX}" y="${(ty(maxP)-9).toFixed(1)}" text-anchor="middle" font-size="10" fill="#22c55e" font-weight="600">+${r1(maxP)} pts</text>
+<text x="${(PL-3).toFixed(1)}" y="${(ty(maxP)+4).toFixed(1)}" text-anchor="end" font-size="8" fill="#22c55e">+${r1(maxP)}</text>
+<text x="${(PL-3).toFixed(1)}" y="${(ty(0)+4).toFixed(1)}" text-anchor="end" font-size="8" fill="#666">0</text>
+<text x="${(PL-3).toFixed(1)}" y="${(ty(minP)+4).toFixed(1)}" text-anchor="end" font-size="8" fill="#ef4444">${r1(minP)}</text>
+<text x="${tx(lK).toFixed(1)}" y="${(H-PB+14).toFixed(1)}" text-anchor="middle" font-size="8" fill="#666">${fmt(lK)}</text>
+<text x="${midX}" y="${(H-PB+14).toFixed(1)}" text-anchor="middle" font-size="8" fill="#3b82f6">${fmt(mK)}★</text>
+<text x="${tx(rK).toFixed(1)}" y="${(H-PB+14).toFixed(1)}" text-anchor="middle" font-size="8" fill="#666">${fmt(rK)}</text>
+</svg>`;
+}
+
+// ── POSITIONS ─────────────────────────────────────────────────────
+function qAdd(type,K,g,bf,flp){
+  ST.pendingAdd={type,K,gap:g,dbt:bf,flp};
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.pnl').forEach(p=>p.classList.remove('on'));
+  // Find the Positions tab by its onclick content instead of a brittle hardcoded index
+  const posTab=[...document.querySelectorAll('.tab')].find(t=>(t.getAttribute('onclick')||'').includes("'pos'"));
+  if(posTab)posTab.classList.add('active');
+  document.getElementById('p-pos').classList.add('on');
+  curTab='pos';rPos();
+}
+function rPos(){
+  const pa=ST.pendingAdd;
+  const posRows=ST.positions.map(p=>{
+    const cBF=p.type==='C'?cbf(p.K,p.gap):pbf(p.K,p.gap);
+    const cFLP=p.type==='C'?getCallLTP(p.K):getPutLTP(p.K);
+    const hp=vp(p.dbt,cFLP);
+    const pnlPt=r1((cBF-p.dbt)*p.lots);
+    const pnlRs=Math.round(pnlPt*ST.lotSize);
+    const m=mn(p.K,p.type);
+    const hst=hp>25?'fail':hp>20?'warn':'pass';
+    let sig='';
+    if(m==='ITM'&&hp>15)sig=`<span class="fail">Exit — ITM</span>`;
+    else if(hp>25)sig=`<span class="fail">Exit — value breach</span>`;
+    else if(hp>20)sig=`<span class="warn">Review</span>`;
+    else if(pnlPt>p.dbt*p.lots*.75)sig=`<span class="pass">Book profit</span>`;
+    else sig=`<span class="pass">Hold</span>`;
+    const isSel=ST.selPosId===p.id;
+    return`<tr ${isSel?'class="hl"':''}>
+<td><b>${fmt(p.K)}</b></td><td>${p.type}</td>
+<td><span class="tag ${mc(m)}">${m}</span></td>
+<td>${p.gap}</td><td>${p.combo}</td><td>${p.expiry}</td><td>${p.lots}</td>
+<td>${p.dbt}</td><td>${p.flp}</td>
+<td><b>${cBF}</b></td><td>${r1(cFLP)}</td>
+<td class="${hst}">${hp.toFixed(1)}%</td>
+<td style="color:${pnlRs>=0?'var(--suc)':'var(--dng)'};font-weight:600">${pnlRs>=0?'+':''}₹${Math.abs(pnlRs).toLocaleString('en-IN')}</td>
+<td>${sig}</td>
+<td><button class="btn btn-b" onclick="ST.selPosId=${p.id};rPos()">📊</button></td>
+<td><button class="btn btn-r" onclick="delPos(${p.id})">✕</button></td>
+</tr>`;
+  }).join('');
+
+  const totPnl=ST.positions.reduce((acc,p)=>{
+    const cBF=p.type==='C'?cbf(p.K,p.gap):pbf(p.K,p.gap);
+    return acc+r1((cBF-p.dbt)*p.lots)*ST.lotSize;
+  },0);
+  const totLots=ST.positions.reduce((a,p)=>a+p.lots,0);
+  const selP=ST.selPosId?ST.positions.find(p=>p.id===ST.selPosId):ST.positions[0];
+
+  document.getElementById('p-pos').innerHTML=`
+<div class="posform">
+${pa?`<div class="tag tw" style="display:inline-block;margin-bottom:8px">⚡ Pre-filled — ${pa.type==='C'?'Call':'Put'} BF · Strike ${fmt(pa.K)}</div>`:''}
+<div class="st" style="margin-top:0">Add position</div>
+<div class="fr">
+  <div class="fg"><label>Type</label><select id="af-tp"><option value="C" ${pa?.type==='C'?'selected':''}>Call BF</option><option value="P" ${pa?.type==='P'?'selected':''}>Put BF</option></select></div>
+  <div class="fg"><label>Strike K</label><input id="af-K" type="number" value="${pa?pa.K:Math.round(ST.aSpot/50)*50}" step="50"></div>
+  <div class="fg"><label>Gap (pts)</label><input id="af-g" type="number" value="${pa?pa.gap:ST.aGap}" step="50"></div>
+  <div class="fg"><label>Combo</label><select id="af-cb">
+    <option value="1:2">1:2</option>
+    <option value="2:3" ${ST.aCombo.l==='2:3'?'selected':''}>2:3</option>
+    <option value="3:4" ${ST.aCombo.l==='3:4'?'selected':''}>3:4</option>
+  </select></div>
+  <div class="fg"><label>Buy lots</label><input id="af-l" type="number" value="2" min="1"></div>
+  <div class="fg"><label>Entry debit/lot (₹)</label><input id="af-d" type="number" value="${pa?pa.dbt:''}" step=".5" placeholder="e.g. 14.0"></div>
+  <div class="fg"><label>Entry FLP (₹)</label><input id="af-f" type="number" value="${pa?pa.flp:''}" step=".5" placeholder="e.g. 110.0"></div>
+  <div class="fg"><label>Expiry label</label><input id="af-ex" type="text" value="${FD.expiries[FD.selExp]||'Weekly'}" placeholder="Weekly"></div>
+</div>
+<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+  <button class="btn btn-p" onclick="addPos()">+ Add to tracker</button>
+  <span style="font-size:11px;color:var(--t2)">Lot size:
+    <input type="number" value="${ST.lotSize}" style="width:55px;padding:3px 5px;background:var(--s2);border:1px solid var(--b);border-radius:4px;color:var(--t);font-size:11px" oninput="ST.lotSize=+this.value;rPos()">
+  </span>
+</div>
+</div>
+
+<div class="st">Open positions ${ST.positions.length?`(${ST.positions.length})`:''}</div>
+${ST.positions.length===0
+  ?`<div class="ib">No positions yet. Use the <b>Option Chain</b> or <b>Exit Tool</b> tabs to find trades that pass the Value Concept, then click <b>+C</b> or <b>+P</b> to add them here.</div>`
+  :`<div class="scrollx">
+<table class="tbl">
+<thead><tr><th>Strike</th><th>Type</th><th>Moneyness</th><th>Gap</th><th>Combo</th><th>Expiry</th><th>Lots</th><th>Entry₹</th><th>Ent FLP</th><th>Cur BF</th><th>Cur FLP</th><th>Hold%</th><th>P&L</th><th>Signal</th><th>📊</th><th>✕</th></tr></thead>
+<tbody>${posRows}</tbody>
+</table></div>
+<div class="st">Portfolio</div>
+<div class="cards">
+  <div class="card ${totPnl>=0?'green':'red'}"><div class="cl">Total P&L</div>
+    <div class="cv" style="font-size:16px">${totPnl>=0?'+':''}₹${Math.abs(Math.round(totPnl)).toLocaleString('en-IN')}</div>
+    <div class="cs">${ST.positions.length} position${ST.positions.length!==1?'s':''} · ${totLots} buy lots</div></div>
+  <div class="card blue"><div class="cl">Lot size</div><div class="cv">${ST.lotSize}</div><div class="cs">₹ per point per lot</div></div>
+  <div class="card ${FD.connected?'green':'amber'}"><div class="cl">Prices</div>
+    <div class="cv" style="font-size:13px">${FD.connected?'● Live':'◉ Demo'}</div>
+    <div class="cs">${FD.connected?`Updated ${FD.lastUpdated?.toLocaleTimeString('en-IN')||''}`:' Black-Scholes estimates'}</div></div>
+</div>`}
+
+${selP?`<div class="st">Payoff at expiry — ${selP.type==='C'?'Call':'Put'} BF at ${fmt(selP.K)} (click 📊 on any row to switch)</div>
+${payoffSVG(selP.K,selP.gap,selP.dbt,selP.type)}
+<div style="font-size:11px;color:var(--t2);margin-top:6px">
+  Max profit: <b class="pass">+${r1(selP.gap-selP.dbt)} pts = +₹${Math.round(r1(selP.gap-selP.dbt)*selP.lots*ST.lotSize).toLocaleString('en-IN')}</b>
+  at NIFTY = ${fmt(selP.type==='C'?selP.K+selP.gap:selP.K-selP.gap)} &nbsp;·&nbsp;
+  Max loss: <b class="fail">−${r1(selP.dbt)} pts = −₹${Math.round(selP.dbt*selP.lots*ST.lotSize).toLocaleString('en-IN')}</b>
+  outside break-evens &nbsp;·&nbsp; ★ = peak profit strike
+</div>`:``}
+<div class="ib"><b>Hold% = Old Debit ÷ Current FLP.</b> &gt;20% → exit and re-enter at closer ATM. &gt;25% → immediate exit. When market moves and VIX rises, BF values temporarily drop — this is a scaling opportunity on the opposite side, not a reason to panic-exit existing positions.</div>`;
+  ST.pendingAdd=null;
+}
+function addPos(){
+  const K=+document.getElementById('af-K').value;
+  const dbt=+document.getElementById('af-d').value;
+  const flp=+document.getElementById('af-f').value;
+  if(!K||!dbt||!flp){alert('Please fill in Strike, Entry Debit, and Entry FLP.');return;}
+  const pos={
+    id:ST.nextId++,
+    type:document.getElementById('af-tp').value,
+    K,gap:+document.getElementById('af-g').value,
+    combo:document.getElementById('af-cb').value,
+    lots:+document.getElementById('af-l').value||1,
+    dbt,flp,
+    expiry:document.getElementById('af-ex').value||'Weekly',
+  };
+  ST.positions.push(pos);
+  if(!ST.selPosId)ST.selPosId=pos.id;
+  rPos();
+}
+function delPos(id){
+  ST.positions=ST.positions.filter(p=>p.id!==id);
+  if(ST.selPosId===id)ST.selPosId=ST.positions[0]?.id||null;
+  rPos();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 8. TABS + CLOCK
+// ═══════════════════════════════════════════════════════════════════
+const rfns={exit:rExit,scr:rScr,pre:rPre,pos:rPos};
+let curTab='exit';
+function doTab(id,btn){
+  document.querySelectorAll('.pnl').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('p-'+id).classList.add('on');
+  btn.classList.add('active');
+  curTab=id;rfns[id]();
+}
+function renderCur(){if(rfns[curTab])rfns[curTab]();}
+
+// Close the connect popover when clicking elsewhere on the page
+document.addEventListener('click',(e)=>{
+  if(HC.open&&!e.target.closest('#hc-wrap'))toggleHcPop(false);
+});
+
+function tick(){
+  const i=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));
+  const p=x=>String(x).padStart(2,'0');
+  document.getElementById('h-cl').textContent=`${p(i.getHours())}:${p(i.getMinutes())}:${p(i.getSeconds())} IST`;
+}
+setInterval(tick,1000);tick();
+
+// ═══════════════════════════════════════════════════════════════════
+// 9. INIT
+// ═══════════════════════════════════════════════════════════════════
+rHdr();rExit();
+checkBrokerStatus();  // pick up an already-connected backend session on reload
+</script>
+</body>
+</html>
